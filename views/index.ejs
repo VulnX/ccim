@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <title>Home | CC IMproved</title>
+    <style>
+        .montserrat-font {
+            font-family: "Montserrat", sans-serif;
+            font-optical-sizing: auto;
+            font-weight: 900;
+            font-style: normal;
+        }
+        * {
+            color: white;
+            padding: 0;
+            margin: 0;
+            cursor: pointer;
+            -webkit-user-select: none; /* Safari */        
+            -moz-user-select: none; /* Firefox */
+            -ms-user-select: none; /* IE10+/Edge */
+            user-select: none; /* Standard */
+        }
+        section {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: row;
+        }
+        .section {
+            width: 50vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .separation-left {
+            width: 0;
+            height: 0;
+            border-bottom: 100vw solid transparent;
+            border-left: 15vw solid #55f;
+            margin-left: -10vw;
+        }
+        .separation-right {
+            width: 0;
+            height: 0;
+            border-top: 100vw solid transparent;
+            border-right: 15vw solid #222;
+            margin-left: -15vw;
+        }
+        .first {
+            background-color: #55f;
+        }
+        .second {
+            background-color: #222;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+        }
+        .container span {
+            font-size: 4rem;
+        }
+        span {
+            font-family: 'Montserrat', Roboto;
+            font-weight: 900;
+        }
+        @media only screen and (max-width: 800px) {
+            section {
+                flex-direction: column;
+            }
+            .section {
+                width: 100vw;
+                height: 50vh;
+            }
+            .separation-left {
+                border: 0;
+                border-right: 100vw solid transparent;
+                border-top: 7vw solid #55f;
+                margin: 0;
+            }
+            .separation-right {
+                border: 0;
+                border-left: 100vw solid transparent;
+                border-bottom: 7vw solid #222;
+                margin: 0;
+                margin-top: -7vw;
+            }
+            .container span {
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <section>
+        <div class="section first" onclick="redirect('view')">
+            <div class="container">
+                <span class="material-symbols-outlined">visibility</span>
+                <span>VIEW</span>
+            </div>
+        </div>
+        <div class="separation-left"></div>
+        <div class="separation-right"></div>
+        <div class="section second" onclick="redirect('edit')">
+            <div class="container">
+                <span class="material-symbols-outlined">edit_square</span>
+                <span>EDIT</span>
+            </div>
+        </div>
+    </section>
+    <script>
+        const redirect = (endpoint) => {
+            document.location.href += endpoint;
+        };
+    </script>
+</body>
+
+</html>

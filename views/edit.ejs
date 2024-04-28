@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit | CC IMproved</title>
+    <style>
+        * {
+            color: white;
+            padding: 0;
+            margin: 0;
+            -webkit-user-select: none; /* Safari */        
+            -moz-user-select: none; /* Firefox */
+            -ms-user-select: none; /* IE10+/Edge */
+            user-select: none; /* Standard */
+            font-size: 1.1rem;
+            font-family: Roboto;
+        }
+        section {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: row;
+        }
+        .section {
+            width: 50vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .separation-left {
+            width: 0;
+            height: 0;
+            border-bottom: 100vw solid transparent;
+            border-left: 15vw solid #55f;
+            margin-left: -10vw;
+        }
+        .separation-right {
+            width: 0;
+            height: 0;
+            border-top: 100vw solid transparent;
+            border-right: 15vw solid #222;
+            margin-left: -15vw;
+        }
+        .first {
+            background-color: #55f;
+        }
+        .second {
+            background-color: #222;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            text-align: center;
+        }
+        .container span {
+            font-size: 4rem;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        form * {
+            margin: 10px 0 10px 0;
+            width: 100%;
+        }
+        input[type=submit] {
+            background-color: #fff;
+            border: 0;
+            color: black;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            /* text-align: center; */
+        }
+        textarea {
+            color: black;
+            height: 50%;
+            resize: none;
+            outline: 0;
+            border: thin solid black;
+            box-shadow: 0 0 5px 0px #00000055;
+            padding: 2px;
+        }
+        @media only screen and (max-width: 800px) {
+            section {
+                flex-direction: column;
+            }
+            .section {
+                width: 100vw;
+                height: 50vh;
+            }
+            .separation-left {
+                border: 0;
+                border-right: 100vw solid transparent;
+                border-top: 7vw solid #55f;
+                margin: 0;
+            }
+            .separation-right {
+                border: 0;
+                border-left: 100vw solid transparent;
+                border-bottom: 7vw solid #222;
+                margin: 0;
+                margin-top: -7vw;
+            }
+            .container {
+                width: 80%;
+            }
+            .container span {
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+      <section>
+        <div class="section first">
+            <div class="container">
+                <form action="/upload/message" method="POST">
+                    <label for="message">Message</label>
+                    <textarea name="message" id="message" placeholder="Type your message here..." ></textarea>
+                    <input type="submit" value="SAVE">
+                </form>
+            </div>
+        </div>
+        <div class="separation-left"></div>
+        <div class="separation-right"></div>
+        <div class="section second">
+            <div class="container">
+                <form action="/upload/file" method="POST" enctype="multipart/form-data">
+                    <input type="file" name="file" id="file">
+                    <input type="submit" value="UPLOAD">
+                </form>
+            </div>
+        </div>
+    </section>
+</body>
+</html>
