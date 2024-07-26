@@ -76,6 +76,7 @@
             border-radius: 5px;
             cursor: pointer;
             transition: .2s;
+            color: #fff;
         }
 
         button:hover,
@@ -120,20 +121,21 @@
 
         <hr>
 
-        <% if (files.length> 0) { %>
-            <% files.forEach(file=> { %>
-                <a href="/files/<%= file %>">
+        <span>
+            <% if (filename) { %>
+                <a href="/download_file">
                     <button>
                         <span>
-                            <%= file %>
+                            <%= filename %>
                         </span>
                         <span class="material-symbols-outlined">download</span>
                     </button>
                 </a>
-                <% }); %>
-                    <% } else { %>
-                        <p>No files found.</p>
-                        <% } %>
+            <% } else { %>
+                <p>No file</p>
+            <% } %>
+        </span>
+
     </main>
     <script>
 

@@ -130,12 +130,42 @@
         <div class="separation-right"></div>
         <div class="section second">
             <div class="container">
-                <form action="/upload/file" method="POST" enctype="multipart/form-data">
+                <form onsubmit="sendFile(event)">
                     <input type="file" name="file" id="file">
+                    <progress id="progress-bar" value="0" max="100"></progress>
                     <input type="submit" value="UPLOAD">
                 </form>
             </div>
         </div>
     </section>
+    <script>
+        async function sendFile(event) {
+            event.preventDefault();
+            const file = document.getElementById('file').files[0];
+            const progressBar = document.getElementById('progress-bar');
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/upload/' + encodeURIComponent(file.name) + '/' + encodeURIComponent(file.size));
+
+            xhr.upload.onprogress = function (event) {
+                if (event.lengthComputable) {
+                    progressBar.value = Math.round((event.loaded / event.total) * 100);
+                }
+            }
+
+            xhr.onload = () => {
+                if (xhr.status == 200) {
+                    window.location.href = window.location.href.replace('/edit', '/view');
+                } else {
+                    alert('File upload failed');
+                }
+            }
+
+            xhr.onerror = () => {
+                alert('File upload failed');
+            }
+
+            xhr.send(file);
+        }
+    </script>
 </body>
 </html>
