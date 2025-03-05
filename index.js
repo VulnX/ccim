@@ -1,35 +1,27 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 
-let text = '';
+let text = null;
 let file = {
   name: null,
   content: null
 };
-const app = express();
 
+const app = express();
 app.use(bodyParser.urlencoded({ extended: false }));
 app.set("view engine", "ejs");
-app.get("/", (_, res) => {
-  res.render("index");
-});
 
-app.get("/view", (_, res) => {
-  res.render("view", {
+app.get("/", (_, res) => {
+  res.render("index", {
     message: text,
     filename: file.name,
   });
 });
 
-app.get("/edit", (_, res) => {
-  res.render("edit");
-});
-
 app.post("/upload/message", (req, res) => {
   const { message } = req.body;
-
   text = message;
-  res.redirect("/view");
+  res.sendStatus(200);
 });
 
 app.post("/upload/:filename/:filesize", (req, res) => {
@@ -53,7 +45,7 @@ app.post("/upload/:filename/:filesize", (req, res) => {
 app.get("/download_file", (_, res) => {
   if (file.content) {
     res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', 'attachment; filename=' + file.name);
+    res.setHeader('Content-Disposition', 'attachment; filename=' + encodeURIComponent(file.name));
     res.end(file.content);
   } else {
     res.status(404).send('File not found');
