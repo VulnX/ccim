@@ -64,12 +64,14 @@
 
         a {
             text-decoration: none;
+            color: inherit;
         }
 
         button {
             background-color: #55f;
             border: 0;
             padding: 5px 10px;
+            padding-right: 20px;
             font-size: 1.5rem;
             font-family: Roboto;
             border-radius: 5px;
@@ -79,10 +81,23 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
         }
 
         button .material-symbols-outlined {
             margin-right: 10px;
+        }
+
+        #delete-icon {
+            position: absolute;
+            right: 0;
+            top: 0;
+            transform: translate(100%, -60%);
+            background-color: #f44336;
+            border-radius: 100px;
+            padding: 5px;
+            font-size: 1.25rem;
+            z-index: 1;
         }
 
         button:hover,
@@ -152,14 +167,15 @@
         <hr>
 
         <% if (filename) { %>
-            <a href="/download_file">
                 <button>
-                    <span class="material-symbols-outlined">download</span>
+                    <span id="delete-icon" class="material-symbols-outlined" onclick="deleteFile()">delete</span>
+                    <a href="/download_file">
+                        <span class="material-symbols-outlined">download</span>
                     <span>
                         <%= filename %>
                     </span>
+                    </a>
                 </button>
-            </a>
             <% } else { %>
                 <div class="drag-drop-container">
                     <div class="drag-drop" onclick="openFilePicker(this)" ondragover="dragOverHandler(event)"
@@ -275,6 +291,14 @@
                 document.getElementsByClassName('drag-drop')[0].children[0].innerText = event.dataTransfer.files[0].name;
                 sendFile(event.dataTransfer.files[0]);
             }
+        }
+
+        function deleteFile() {
+            fetch('/delete_file', {
+                method: 'POST'
+            }).then(() => {
+                window.location.reload();
+            });
         }
 
         document.addEventListener('keydown', e => {

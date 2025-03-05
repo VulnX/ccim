@@ -42,6 +42,12 @@ app.post("/upload/:filename/:filesize", (req, res) => {
   });
 });
 
+app.post('/delete_file', (_, res) => {
+  file.name = null;
+  file.content = null;
+  res.sendStatus(200);
+});
+
 app.get("/download_file", (_, res) => {
   if (file.content) {
     res.setHeader('Content-Type', 'application/octet-stream');
