@@ -1,5 +1,8 @@
 const express = require("express");
 const bodyParser = require("body-parser");
+const http = require("http");
+const https = require("https");
+const fs = require('fs');
 
 let text = null;
 let file = {
@@ -58,8 +61,8 @@ app.get("/download_file", (_, res) => {
   }
 });
 
-const port = process.env.PORT || 8080;
-
-app.listen(port, () => {
-  console.log(`Server is listening on 0.0.0.0 at ${port}`);
-});
+http.createServer(app).listen(8080);
+https.createServer({
+  key: fs.readFileSync('/path/to/privkey.pem'),
+  cert: fs.readFileSync('/path/to/fullchain.pem')
+}, app).listen(8443);
