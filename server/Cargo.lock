@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "ccim_backend"
+name = "ccim-server"
 version = "0.1.0"
