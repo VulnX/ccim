@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
-Future<dynamic> showOkDialog(BuildContext context, String title, String content) {
+Future<dynamic> showOkDialog(
+  BuildContext context,
+  String title,
+  String content,
+) {
   return showDialog(
     context: context,
     builder:
