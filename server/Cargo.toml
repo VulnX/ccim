@@ -1,6 +1,17 @@
 [package]
 name = "ccim-server"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+axum = { version = "0.8.1", features = ["macros"]}
+rusqlite = { version = "0.34.0", features = ["bundled"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+tokio = { version = "1.44.1", features = ["full"] }
+tower-cookies = "0.11.0"
+tower-http = { version = "0.6.2", features = ["fs"] }
+anyhow = "1.0.97"
+chrono = "0.4.40"
+
+[dev-dependencies]
