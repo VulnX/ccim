@@ -24,6 +24,7 @@ pub struct ClipboardOptions {
     pub expire_after: u64,
 }
 
+#[derive(Debug)]
 pub struct CreateClipboardPayload {
     pub name: String,
     pub text: Option<String>,
@@ -61,8 +62,9 @@ CREATE TABLE IF NOT EXISTS clipboard_files
 (
   id TEXT NOT NULL,
   name TEXT NOT NULL,
-  clipboard_name TEXT NOT NULL
+  clipboard_name TEXT NOT NULL,
   PRIMARY KEY (id, name, clipboard_name),
+  UNIQUE (id),
   FOREIGN KEY (clipboard_name) REFERENCES clipboards(name)
 );",
             [],
@@ -104,14 +106,34 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                 clipboard.expiry
             ],
         )
-        .map_err(|_| Error::FailedToInsertIntoDB)?;
+        .map_err(|e| {
+            if let Some(error) = e.sqlite_error() {
+                match error.code {
+                    rusqlite::ErrorCode::ConstraintViolation => {
+                        // For `clipboards` table the only unique constraint is
+                        // on `name` hence we do not need to check which column
+                        // caused constraint violation.
+                        // Yes `text` field also has unique attribute but since
+                        // it is generated via UUID crate, realistically there
+                        // should not be any collision.
+                        Error::NameAlreadyExistsInDB
+                    }
+                    _ => Error::UnhandledError(e.into()),
+                }
+            } else {
+                Error::UnhandledError(e.into())
+            }
+        })?;
         if let Some(files) = clipboard.files {
             for (name, id) in files {
                 conn.execute(
                     "INSERT INTO clipboard_files (id, name, clipboard_name) VALUES (?1, ?2, ?3)",
                     params![id, name, clipboard.name,],
                 )
-                .unwrap();
+                .map_err(|e| {
+                    // Only constraint is on `id` field which is realistically never going to collide
+                    Error::UnhandledError(e.into())
+                })?;
             }
         }
         Ok(())

@@ -3,7 +3,6 @@ use std::{collections::HashMap, time::Duration};
 use axum::{
     extract::{DefaultBodyLimit, Multipart, State},
     http::StatusCode,
-    response::Html,
     routing::{get, post},
     Router,
 };
@@ -12,12 +11,12 @@ use tokio::{fs::File, io::AsyncWriteExt};
 use tower_http::limit::RequestBodyLimitLayer;
 
 use crate::{
-    error::{Error, Result},
-    models::{self, ClipboardOptions, CreateClipboardPayload, DatabaseController},
+    error::Result,
+    models::{self},
 };
 
 pub fn routes() -> Router {
-    let db_controller = DatabaseController::new();
+    let db_controller = models::DatabaseController::new();
     Router::new()
         .route(
             "/clipboards",
@@ -27,27 +26,27 @@ pub fn routes() -> Router {
                 .delete(delete_clipboard),
         )
         .route("/status", get(status))
-        .route("/form", get(show_form))
         .with_state(db_controller)
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new((100 + 1 + 1) * 1024 * 1024)) // 100MiB for files, 1MiB for text & 1MiB buffer space
 }
 
 async fn create_clipboard(
-    State(db_controller): State<DatabaseController>,
+    State(db_controller): State<models::DatabaseController>,
     mut multipart: Multipart,
 ) -> Result<StatusCode> {
     let mut files: Option<HashMap<String, String>> = None;
     let mut text: Option<String> = None;
-    let mut info: Option<ClipboardOptions> = None;
+    let mut info: Option<models::ClipboardOptions> = None;
 
+    // Parse multipart payload and store text/file(s)
     while let Some(mut field) = multipart.next_field().await.unwrap() {
         let id = uuid::Uuid::new_v4().to_string();
         let path = models::get_data_dir().join("files").join(&id);
-        let mut file = File::create(&path).await.unwrap();
         match field.name().unwrap() {
             "text" => {
                 if text.is_none() {
+                    let mut file = File::create(&path).await.unwrap();
                     while let Some(chunk) = field.chunk().await.unwrap() {
                         file.write_all(&chunk).await.unwrap();
                     }
@@ -55,6 +54,7 @@ async fn create_clipboard(
                 }
             }
             "file" => {
+                let mut file = File::create(&path).await.unwrap();
                 while let Some(chunk) = field.chunk().await.unwrap() {
                     file.write_all(&chunk).await.unwrap();
                 }
@@ -68,7 +68,7 @@ async fn create_clipboard(
             "info" => {
                 let info_ = field.bytes().await.unwrap();
                 let info_ = std::str::from_utf8(&info_).unwrap();
-                let info_ = serde_json::from_str::<ClipboardOptions>(info_.into()).unwrap();
+                let info_ = serde_json::from_str::<models::ClipboardOptions>(info_.into()).unwrap();
                 if info.is_none() {
                     info = Some(info_);
                 }
@@ -77,23 +77,53 @@ async fn create_clipboard(
         }
     }
 
-    let info = info.ok_or(Error::InvalidInfoSupplied)?;
+    // Create clipboard payload
+    let Some(info) = info else {
+        return Ok(StatusCode::BAD_REQUEST);
+    };
     let expiry = Utc::now() + Duration::from_secs(info.expire_after);
     let expiry = expiry.format("%Y-%m-%d %H:%M:%S").to_string();
-
-    let clipboard = CreateClipboardPayload {
-        name: info.name,
-        text,
-        files,
-        is_encrypted: info.is_encrypted,
+    let name = info.name;
+    let is_encrypted = info.is_encrypted;
+    let clipboard = models::CreateClipboardPayload {
+        name,
+        text: text.clone(),
+        files: files.clone(),
+        is_encrypted,
         expiry,
     };
-    db_controller.add_clipboard(clipboard).await.unwrap();
+
+    // Attempt to add to database
+    match db_controller.add_clipboard(clipboard).await {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            match e {
+                // Reject this request because unique `name` constraint not satisfied
+                crate::error::Error::NameAlreadyExistsInDB => {
+                    // Cleanup stored text/file(s) since this request will be rejected
+                    if let Some(text) = text {
+                        tokio::fs::remove_file(models::get_data_dir().join("files").join(text))
+                            .await
+                            .unwrap();
+                    }
+                    if let Some(files) = files {
+                        for (_name, id) in files {
+                            tokio::fs::remove_file(models::get_data_dir().join("files").join(id))
+                                .await
+                                .unwrap();
+                        }
+                    }
+                    Err(e)
+                }
+                _ => Err(e),
+            }
+        }
+    }?;
 
     Ok(StatusCode::CREATED)
 }
 
-async fn list_clipboards(State(app_state): State<DatabaseController>) -> Result<String> {
+async fn list_clipboards(State(app_state): State<models::DatabaseController>) -> Result<String> {
     let clipboards = app_state.get_clipboards().await.unwrap();
     dbg!(&clipboards);
     Ok(format!("{clipboards:#?}"))
@@ -109,26 +139,4 @@ async fn delete_clipboard() -> Result<()> {
 
 async fn status() -> Result<StatusCode> {
     Ok(StatusCode::OK)
-}
-
-async fn show_form() -> Html<&'static str> {
-    Html(
-        r#"
-        <!doctype html>
-        <html>
-            <head></head>
-            <body>
-                <form action="/api/clipboards" method="post" enctype="multipart/form-data">
-                    <label>
-                        Upload file:
-                        <input type="file" name="file" multiple>
-                    </label>
-                    <input type="text" name="text">
-
-                    <input type="submit" value="Upload files">
-                </form>
-            </body>
-        </html>
-        "#,
-    )
 }
