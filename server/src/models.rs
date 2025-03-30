@@ -2,8 +2,12 @@ use crate::error::{Error, Result};
 use axum::extract::FromRef;
 use rusqlite::{params, Connection};
 use serde::Deserialize;
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
+
+pub fn get_data_dir() -> PathBuf {
+    PathBuf::new().join("data")
+}
 
 #[derive(Debug)]
 pub struct ClipboardEntry {
@@ -14,10 +18,18 @@ pub struct ClipboardEntry {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct CreateClipboardEntryRequest {
+pub struct ClipboardOptions {
+    pub name: String,
+    pub is_encrypted: bool,
+    pub expire_after: u64,
+}
+
+pub struct CreateClipboardPayload {
     pub name: String,
     pub text: Option<String>,
+    pub files: Option<HashMap<String, String>>,
     pub is_encrypted: bool,
+    pub expiry: String,
 }
 
 #[derive(Debug, Clone, FromRef)]
@@ -27,8 +39,8 @@ pub struct DatabaseController {
 
 impl DatabaseController {
     pub fn new() -> Self {
-        std::fs::create_dir_all(PathBuf::new().join("data").join("files")).unwrap();
-        let conn = Connection::open(PathBuf::new().join("data").join("database.db3")).unwrap();
+        std::fs::create_dir_all(get_data_dir().join("files")).unwrap();
+        let conn = Connection::open(get_data_dir().join("database.db3")).unwrap();
         conn.execute(
             "
         CREATE TABLE IF NOT EXISTS clipboards
@@ -47,10 +59,11 @@ impl DatabaseController {
             "
 CREATE TABLE IF NOT EXISTS clipboard_files
 (
-  file TEXT NOT NULL,
+  id TEXT NOT NULL,
   name TEXT NOT NULL,
-  PRIMARY KEY (file, name),
-  FOREIGN KEY (name) REFERENCES clipboards(name)
+  clipboard_name TEXT NOT NULL
+  PRIMARY KEY (id, name, clipboard_name),
+  FOREIGN KEY (clipboard_name) REFERENCES clipboards(name)
 );",
             [],
         )
@@ -80,7 +93,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         Ok(clipboards)
     }
 
-    pub async fn add_clipboard(&self, clipboard: ClipboardEntry) -> Result<()> {
+    pub async fn add_clipboard(&self, clipboard: CreateClipboardPayload) -> Result<()> {
         let conn = self.db.lock().await;
         conn.execute(
             "INSERT INTO clipboards (name, text, is_encrypted, expiry) VALUES (?1, ?2, ?3, ?4)",
@@ -92,6 +105,15 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             ],
         )
         .map_err(|_| Error::FailedToInsertIntoDB)?;
+        if let Some(files) = clipboard.files {
+            for (name, id) in files {
+                conn.execute(
+                    "INSERT INTO clipboard_files (id, name, clipboard_name) VALUES (?1, ?2, ?3)",
+                    params![id, name, clipboard.name,],
+                )
+                .unwrap();
+            }
+        }
         Ok(())
     }
 }

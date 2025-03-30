@@ -9,6 +9,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub enum Error {
     FailedToQueryDB,
     FailedToInsertIntoDB,
+    InvalidInfoSupplied,
 }
 
 impl IntoResponse for Error {
