@@ -3,19 +3,17 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde_json::json;
-
+use tracing::error;
 pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
     UnhandledError(anyhow::Error),
-    FailedToQueryDB,
     NameAlreadyExistsInDB,
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
-        println!("Received error : {:?}", self);
         match self {
             Error::NameAlreadyExistsInDB => (
                 StatusCode::CONFLICT,
@@ -25,16 +23,12 @@ impl IntoResponse for Error {
                 .to_string(),
             ),
             Error::UnhandledError(msg) => {
-                eprintln!("Unhandled error : {msg}");
+                error!("UNHANDLED ERROR : {msg}");
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "UNHANDLED_SERVER_SIDE_ERROR".into(),
                 )
             }
-            _ => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "please take care of this error in server side".into(),
-            ),
         }
         .into_response()
     }

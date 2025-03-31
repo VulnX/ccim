@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
 
         let mut clipboards: Vec<GetClipboardsResponse> = Vec::new();
 
+        // TODO : filter those which have expired
         for clipboard_row in clipboard_rows.filter_map(|row| row.ok()) {
             let mut stmt = conn
                 .prepare("SELECT file_id, file_name FROM clipboard_files WHERE clipboard_name = ?")

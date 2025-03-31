@@ -126,7 +126,6 @@ async fn list_clipboards(
     State(app_state): State<models::DatabaseController>,
 ) -> Result<Json<Vec<models::GetClipboardsResponse>>> {
     let clipboards = app_state.get_clipboards().await?;
-    dbg!(&clipboards);
     Ok(Json(clipboards))
 }
 
