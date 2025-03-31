@@ -1,10 +1,10 @@
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
 
 use axum::{
     extract::{DefaultBodyLimit, Multipart, State},
     http::StatusCode,
     routing::{get, post},
-    Router,
+    Json, Router,
 };
 use chrono::Utc;
 use tokio::{fs::File, io::AsyncWriteExt};
@@ -81,8 +81,7 @@ async fn create_clipboard(
     let Some(info) = info else {
         return Ok(StatusCode::BAD_REQUEST);
     };
-    let expiry = Utc::now() + Duration::from_secs(info.expire_after);
-    let expiry = expiry.format("%Y-%m-%d %H:%M:%S").to_string();
+    let expiry = Utc::now().timestamp() + info.expire_after;
     let name = info.name;
     let is_encrypted = info.is_encrypted;
     let clipboard = models::CreateClipboardPayload {
@@ -123,10 +122,12 @@ async fn create_clipboard(
     Ok(StatusCode::CREATED)
 }
 
-async fn list_clipboards(State(app_state): State<models::DatabaseController>) -> Result<String> {
-    let clipboards = app_state.get_clipboards().await.unwrap();
+async fn list_clipboards(
+    State(app_state): State<models::DatabaseController>,
+) -> Result<Json<Vec<models::GetClipboardsResponse>>> {
+    let clipboards = app_state.get_clipboards().await?;
     dbg!(&clipboards);
-    Ok(format!("{clipboards:#?}"))
+    Ok(Json(clipboards))
 }
 
 async fn update_clipboard() -> Result<()> {
