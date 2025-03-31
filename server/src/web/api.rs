@@ -124,9 +124,13 @@ async fn create_clipboard(
 
 async fn list_clipboards(
     State(app_state): State<models::DatabaseController>,
-) -> Result<Json<Vec<models::GetClipboardsResponse>>> {
+) -> Result<(StatusCode, Json<Vec<models::GetClipboardsResponse>>)> {
     let clipboards = app_state.get_clipboards().await?;
-    Ok(Json(clipboards))
+    if clipboards.is_empty() {
+        Ok((StatusCode::NO_CONTENT, Json(clipboards)))
+    } else {
+        Ok((StatusCode::OK, Json(clipboards)))
+    }
 }
 
 async fn update_clipboard() -> Result<()> {
