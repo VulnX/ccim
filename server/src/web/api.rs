@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use axum::{
-    extract::{DefaultBodyLimit, Multipart, State},
+    extract::{DefaultBodyLimit, Multipart, Path, State},
     http::StatusCode,
-    routing::{get, post},
+    routing::{get, patch, post},
     Json, Router,
 };
 use chrono::Utc;
@@ -11,19 +11,17 @@ use tokio::{fs::File, io::AsyncWriteExt};
 use tower_http::limit::RequestBodyLimitLayer;
 
 use crate::{
-    error::Result,
-    models::{self},
+    error::{Error, Result},
+    models::{self, get_data_dir},
 };
 
 pub fn routes() -> Router {
     let db_controller = models::DatabaseController::new();
     Router::new()
+        .route("/clipboards", post(create_clipboard).get(list_clipboards))
         .route(
-            "/clipboards",
-            post(create_clipboard)
-                .get(list_clipboards)
-                .patch(update_clipboard)
-                .delete(delete_clipboard),
+            "/clipboard/{name}",
+            patch(update_clipboard).delete(delete_clipboard),
         )
         .route("/status", get(status))
         .with_state(db_controller)
@@ -123,9 +121,9 @@ async fn create_clipboard(
 }
 
 async fn list_clipboards(
-    State(app_state): State<models::DatabaseController>,
+    State(db_controller): State<models::DatabaseController>,
 ) -> Result<(StatusCode, Json<Vec<models::GetClipboardsResponse>>)> {
-    let clipboards = app_state.get_clipboards().await?;
+    let clipboards = db_controller.get_clipboards().await?;
     if clipboards.is_empty() {
         Ok((StatusCode::NO_CONTENT, Json(clipboards)))
     } else {
@@ -137,8 +135,23 @@ async fn update_clipboard() -> Result<()> {
     todo!()
 }
 
-async fn delete_clipboard() -> Result<()> {
-    todo!()
+async fn delete_clipboard(
+    State(db_controller): State<models::DatabaseController>,
+    Path(name): Path<String>,
+) -> Result<StatusCode> {
+    let to_be_deleted = db_controller.delete_clipboard(name).await?;
+    if let Some(text_id) = to_be_deleted.text_file_id {
+        tokio::fs::remove_file(get_data_dir().join("files").join(text_id))
+            .await
+            .map_err(|e| Error::UnhandledError(e.into()))?;
+    }
+
+    for file_id in to_be_deleted.file_ids {
+        tokio::fs::remove_file(get_data_dir().join("files").join(file_id))
+            .await
+            .map_err(|e| Error::UnhandledError(e.into()))?;
+    }
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn status() -> Result<StatusCode> {

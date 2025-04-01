@@ -25,6 +25,12 @@ pub struct CreateClipboardPayload {
     pub expiry: i64,
 }
 
+#[derive(Debug)]
+pub struct DeleteClipboardResponse {
+    pub text_file_id: Option<String>,
+    pub file_ids: Vec<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct GetClipboardsResponse {
     pub name: String,
@@ -38,7 +44,7 @@ struct ClipboardsEntry {
     clipboard_name: String,
     text_file_id: Option<String>,
     is_encrypted: bool,
-    expiry: i64,
+    _expiry: i64,
 }
 
 #[derive(Debug)]
@@ -102,7 +108,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                     clipboard_name: row.get(0)?,
                     text_file_id: row.get(1)?,
                     is_encrypted: row.get(2)?,
-                    expiry: row.get(3)?,
+                    _expiry: row.get(3)?,
                 })
             })
             .map_err(|e| Error::UnhandledError(e.into()))?;
@@ -187,5 +193,81 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             }
         }
         Ok(())
+    }
+
+    /// Asynchronously deletes a clipboard entry and associated clipboard files from the database.
+    ///
+    /// # Arguments
+    /// * `clipboard_name` - The name of the clipboard to be deleted.
+    ///
+    /// # Returns
+    /// * A `Result` containing the `DeleteClipboardResponse` on success, or an `Error` on failure.
+    pub async fn delete_clipboard(
+        &self,
+        clipboard_name: String,
+    ) -> Result<DeleteClipboardResponse> {
+        // Lock the database connection for this operation
+        let conn = self.db.lock().await;
+
+        // Check the given name against expiry (non null) field to determine if name is valid or not
+        let mut stmt = conn
+            .prepare("SELECT expiry FROM clipboards WHERE clipboard_name = ?")
+            .map_err(|e| Error::UnhandledError(e.into()))?;
+        if stmt
+            .query_map([&clipboard_name], |row| {
+                let expiry: i64 = row.get(0)?;
+                Ok(expiry)
+            })
+            .map_err(|e| Error::UnhandledError(e.into()))?
+            .next()
+            .is_none()
+        {
+            return Err(Error::ClipboardDoesNotExist);
+        }
+
+        // Fetch the text_file_id for the specified clipboard.
+        let mut stmt = conn
+            .prepare("SELECT text_file_id FROM clipboards WHERE clipboard_name = ?")
+            .map_err(|e| Error::UnhandledError(e.into()))?;
+        let mut clipboards_row = stmt
+            .query_map([&clipboard_name], |row| {
+                let text_file_id: String = row.get(0)?;
+                Ok(text_file_id)
+            })
+            .map_err(|e| Error::UnhandledError(e.into()))?;
+        let text_file_id = clipboards_row.next().map(|row| row.ok()).flatten();
+
+        // Fetch all file_ids associated with the clipboard.
+        let mut stmt = conn
+            .prepare("SELECT file_id FROM clipboard_files WHERE clipboard_name = ?")
+            .map_err(|e| Error::UnhandledError(e.into()))?;
+        let file_ids: Vec<String> = stmt
+            .query_map([&clipboard_name], |row| {
+                let file_id: String = row.get(0)?;
+                Ok(file_id)
+            })
+            .map_err(|e| Error::UnhandledError(e.into()))?
+            .filter_map(|row| row.ok()) // Filter out any errors during row processing.
+            .collect();
+
+        // Delete all clipboard file entries associated with the clipboard name.
+        conn.execute(
+            "DELETE FROM clipboard_files WHERE clipboard_name = ?",
+            [&clipboard_name],
+        )
+        .map_err(|e| Error::UnhandledError(e.into()))?;
+
+        // Delete the clipboard entry itself from the clipboards table.
+        conn.execute(
+            "DELETE FROM clipboards WHERE clipboard_name = ?",
+            [&clipboard_name],
+        )
+        .map_err(|e| Error::UnhandledError(e.into()))?;
+
+        // Return a successful response containing the text_file_id and associated file_ids.
+        Ok(DeleteClipboardResponse {
+            text_file_id: text_file_id,
+            file_ids,
+        })
     }
 }
