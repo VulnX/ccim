@@ -9,6 +9,10 @@ pub fn get_data_dir() -> PathBuf {
     PathBuf::new().join("data")
 }
 
+pub fn get_files_dir() -> PathBuf {
+    get_data_dir().join("files")
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ClipboardOptions {
     pub name: String,
@@ -35,8 +39,16 @@ pub struct DeleteClipboardResponse {
 pub struct GetClipboardsResponse {
     pub name: String,
     pub text: Option<String>,
+    pub files: Vec<String>,
     pub is_encrypted: bool,
-    pub files: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FullClipboardData {
+    pub name: String,
+    pub text: Option<String>,
+    pub is_encrypted: bool,
+    pub files: HashMap<String, String>,
 }
 
 #[derive(Debug)]
@@ -60,7 +72,7 @@ pub struct DatabaseController {
 
 impl DatabaseController {
     pub fn new() -> Self {
-        std::fs::create_dir_all(get_data_dir().join("files")).unwrap();
+        std::fs::create_dir_all(get_files_dir()).unwrap();
         let conn = Connection::open(get_data_dir().join("database.db3")).unwrap();
         conn.execute(
             "
@@ -93,62 +105,6 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         Self {
             db: Arc::new(Mutex::new(conn)),
         }
-    }
-
-    pub async fn get_clipboards(&self) -> Result<Vec<GetClipboardsResponse>> {
-        let conn = self.db.lock().await;
-
-        let mut stmt = conn
-            .prepare("SELECT clipboard_name, text_file_id, is_encrypted, expiry FROM clipboards")
-            .map_err(|e| Error::UnhandledError(e.into()))?;
-
-        let clipboard_rows = stmt
-            .query_map([], |row| {
-                Ok(ClipboardsEntry {
-                    clipboard_name: row.get(0)?,
-                    text_file_id: row.get(1)?,
-                    is_encrypted: row.get(2)?,
-                    _expiry: row.get(3)?,
-                })
-            })
-            .map_err(|e| Error::UnhandledError(e.into()))?;
-
-        let mut clipboards: Vec<GetClipboardsResponse> = Vec::new();
-
-        // TODO : filter those which have expired
-        for clipboard_row in clipboard_rows.filter_map(|row| row.ok()) {
-            let mut stmt = conn
-                .prepare("SELECT file_id, file_name FROM clipboard_files WHERE clipboard_name = ?")
-                .map_err(|e| Error::UnhandledError(e.into()))?;
-
-            let files_rows = stmt
-                .query_map([&clipboard_row.clipboard_name], |row| {
-                    Ok(ClipboardFilesEntry {
-                        file_id: row.get(0)?,
-                        file_name: row.get(1)?,
-                    })
-                })
-                .map_err(|e| Error::UnhandledError(e.into()))?;
-
-            let mut clipboard = GetClipboardsResponse {
-                name: clipboard_row.clipboard_name,
-                text: clipboard_row.text_file_id,
-                is_encrypted: clipboard_row.is_encrypted,
-                files: None,
-            };
-
-            for file in files_rows.filter_map(|row| row.ok()) {
-                if clipboard.files.is_none() {
-                    clipboard.files = Some(HashMap::new());
-                }
-                if let Some(file_map) = &mut clipboard.files {
-                    file_map.insert(file.file_name, file.file_id);
-                }
-            }
-
-            clipboards.push(clipboard);
-        }
-        Ok(clipboards)
     }
 
     pub async fn add_clipboard(&self, clipboard: CreateClipboardPayload) -> Result<()> {
@@ -193,6 +149,57 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             }
         }
         Ok(())
+    }
+
+    pub async fn get_clipboards(&self) -> Result<Vec<FullClipboardData>> {
+        let conn = self.db.lock().await;
+
+        let mut stmt = conn
+            .prepare("SELECT clipboard_name, text_file_id, is_encrypted, expiry FROM clipboards")
+            .map_err(|e| Error::UnhandledError(e.into()))?;
+
+        let clipboard_rows = stmt
+            .query_map([], |row| {
+                Ok(ClipboardsEntry {
+                    clipboard_name: row.get(0)?,
+                    text_file_id: row.get(1)?,
+                    is_encrypted: row.get(2)?,
+                    _expiry: row.get(3)?,
+                })
+            })
+            .map_err(|e| Error::UnhandledError(e.into()))?;
+
+        let mut clipboards: Vec<FullClipboardData> = Vec::new();
+
+        // TODO : filter those which have expired
+        for clipboard_row in clipboard_rows.filter_map(|row| row.ok()) {
+            let mut stmt = conn
+                .prepare("SELECT file_id, file_name FROM clipboard_files WHERE clipboard_name = ?")
+                .map_err(|e| Error::UnhandledError(e.into()))?;
+
+            let files_rows = stmt
+                .query_map([&clipboard_row.clipboard_name], |row| {
+                    Ok(ClipboardFilesEntry {
+                        file_id: row.get(0)?,
+                        file_name: row.get(1)?,
+                    })
+                })
+                .map_err(|e| Error::UnhandledError(e.into()))?;
+
+            let mut clipboard = FullClipboardData {
+                name: clipboard_row.clipboard_name,
+                text: clipboard_row.text_file_id,
+                is_encrypted: clipboard_row.is_encrypted,
+                files: HashMap::new(),
+            };
+
+            for file in files_rows.filter_map(|row| row.ok()) {
+                    clipboard.files.insert(file.file_name, file.file_id);
+            }
+
+            clipboards.push(clipboard);
+        }
+        Ok(clipboards)
     }
 
     /// Asynchronously deletes a clipboard entry and associated clipboard files from the database.

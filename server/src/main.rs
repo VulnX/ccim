@@ -38,16 +38,27 @@ mod api_test {
 
     use super::*;
 
-    async fn clear_data_dir() {
+    async fn init_test() -> TestServer {
         let _ = tokio::fs::remove_dir_all(PathBuf::new().join("data")).await;
+        let app = app();
+        let server = TestServer::new(app).unwrap();
+        server
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_running_server() {
+        let server = init_test().await;
+        
+        let response = server.get("/api/status").await;
+        response.assert_status(StatusCode::OK);
     }
 
     #[tokio::test]
     #[serial]
     async fn test_successful_upload() {
-        clear_data_dir().await;
-        let app = app();
-        let server = TestServer::new(app).unwrap();
+        let server = init_test().await;
+        
         let info = json!({
             "name": "some clipboard name",
             "is_encrypted": false,
@@ -60,26 +71,19 @@ mod api_test {
             .add_part("text", text)
             .add_part("file", file)
             .add_part("info", info);
+        
         let response = server.post("/api/clipboards").multipart(form).await;
         response.assert_status(StatusCode::CREATED);
     }
 
     #[tokio::test]
     #[serial]
-    async fn test_empty_get() {
-        clear_data_dir().await;
-        let app = app();
-        let server = TestServer::new(app).unwrap();
+    async fn test_successful_get() {
+        let server = init_test().await;
+
         let response = server.get("/api/clipboards").await;
         response.assert_status(StatusCode::NO_CONTENT);
-    }
 
-    #[tokio::test]
-    #[serial]
-    async fn test_successful_get() {
-        clear_data_dir().await;
-        let app = app();
-        let server = TestServer::new(app).unwrap();
         let info = json!({
             "name": "some clipboard name",
             "is_encrypted": false,
@@ -96,5 +100,43 @@ mod api_test {
 
         let response = server.get("/api/clipboards").await;
         response.assert_status(StatusCode::OK);
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_delete() {
+        let server = init_test().await;
+
+        let info = json!({
+            "name": "clip1",
+            "is_encrypted": false,
+            "expire_after": 30,
+        });
+        let info = Part::text(info.to_string());
+        let form = MultipartForm::new().add_part("info", info);
+        let response = server.post("/api/clipboards").multipart(form).await;
+        response.assert_status(StatusCode::CREATED);
+        let info = json!({
+            "name": "clip2",
+            "is_encrypted": false,
+            "expire_after": 30,
+        });
+        let info = Part::text(info.to_string());
+        let text = Part::text("some text here");
+        let file =
+            Part::bytes("some file contents here".as_bytes().to_vec()).file_name("myfile.txt");
+        let form = MultipartForm::new()
+            .add_part("info", info)
+            .add_part("text", text)
+            .add_part("file", file);
+        let response = server.post("/api/clipboards").multipart(form).await;
+        response.assert_status(StatusCode::CREATED);
+
+        let response = server.delete("/api/clipboard/clip1").await;
+        response.assert_status(StatusCode::NO_CONTENT);
+        let response = server.delete("/api/clipboard/clip2").await;
+        response.assert_status(StatusCode::NO_CONTENT);
+        let response = server.delete("/api/clipboard/clip3").await;
+        response.assert_status(StatusCode::NOT_FOUND);
     }
 }

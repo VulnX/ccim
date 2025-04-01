@@ -12,7 +12,7 @@ use tower_http::limit::RequestBodyLimitLayer;
 
 use crate::{
     error::{Error, Result},
-    models::{self, get_data_dir},
+    models::{self, get_files_dir},
 };
 
 pub fn routes() -> Router {
@@ -29,6 +29,10 @@ pub fn routes() -> Router {
         .layer(RequestBodyLimitLayer::new((100 + 1 + 1) * 1024 * 1024)) // 100MiB for files, 1MiB for text & 1MiB buffer space
 }
 
+async fn status() -> Result<StatusCode> {
+    Ok(StatusCode::OK)
+}
+
 async fn create_clipboard(
     State(db_controller): State<models::DatabaseController>,
     mut multipart: Multipart,
@@ -40,7 +44,7 @@ async fn create_clipboard(
     // Parse multipart payload and store text/file(s)
     while let Some(mut field) = multipart.next_field().await.unwrap() {
         let id = uuid::Uuid::new_v4().to_string();
-        let path = models::get_data_dir().join("files").join(&id);
+        let path = get_files_dir().join(&id);
         match field.name().unwrap() {
             "text" => {
                 if text.is_none() {
@@ -99,13 +103,13 @@ async fn create_clipboard(
                 crate::error::Error::NameAlreadyExistsInDB => {
                     // Cleanup stored text/file(s) since this request will be rejected
                     if let Some(text) = text {
-                        tokio::fs::remove_file(models::get_data_dir().join("files").join(text))
+                        tokio::fs::remove_file(get_files_dir().join(text))
                             .await
                             .unwrap();
                     }
                     if let Some(files) = files {
                         for (_name, id) in files {
-                            tokio::fs::remove_file(models::get_data_dir().join("files").join(id))
+                            tokio::fs::remove_file(get_files_dir().join(id))
                                 .await
                                 .unwrap();
                         }
@@ -123,11 +127,34 @@ async fn create_clipboard(
 async fn list_clipboards(
     State(db_controller): State<models::DatabaseController>,
 ) -> Result<(StatusCode, Json<Vec<models::GetClipboardsResponse>>)> {
-    let clipboards = db_controller.get_clipboards().await?;
-    if clipboards.is_empty() {
-        Ok((StatusCode::NO_CONTENT, Json(clipboards)))
+    let mut clipboards = db_controller.get_clipboards().await?;
+    let mut res: Vec<models::GetClipboardsResponse> = Vec::new();
+    for clipboard in &mut clipboards {
+        if let Some(text_file_id) = &clipboard.text {
+            let text = tokio::fs::read_to_string(get_files_dir().join(text_file_id))
+                .await
+                .map_err(|e| Error::UnhandledError(e.into()))?;
+            clipboard.text = Some(text);
+        }
+
+        let files: Vec<String> = clipboard
+            .files
+            .keys()
+            .map(|file_name| file_name.clone())
+            .collect();
+
+        res.push(models::GetClipboardsResponse {
+            name: clipboard.name.clone(),
+            text: clipboard.text.clone(),
+            files,
+            is_encrypted: clipboard.is_encrypted,
+        });
+    }
+
+    if res.is_empty() {
+        return Ok((StatusCode::NO_CONTENT, Json(res)));
     } else {
-        Ok((StatusCode::OK, Json(clipboards)))
+        return Ok((StatusCode::OK, Json(res)));
     }
 }
 
@@ -141,19 +168,16 @@ async fn delete_clipboard(
 ) -> Result<StatusCode> {
     let to_be_deleted = db_controller.delete_clipboard(name).await?;
     if let Some(text_id) = to_be_deleted.text_file_id {
-        tokio::fs::remove_file(get_data_dir().join("files").join(text_id))
+        tokio::fs::remove_file(get_files_dir().join(text_id))
             .await
             .map_err(|e| Error::UnhandledError(e.into()))?;
     }
 
     for file_id in to_be_deleted.file_ids {
-        tokio::fs::remove_file(get_data_dir().join("files").join(file_id))
+        tokio::fs::remove_file(get_files_dir().join(file_id))
             .await
             .map_err(|e| Error::UnhandledError(e.into()))?;
     }
     Ok(StatusCode::NO_CONTENT)
 }
 
-async fn status() -> Result<StatusCode> {
-    Ok(StatusCode::OK)
-}
