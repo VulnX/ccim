@@ -33,19 +33,19 @@ mod api_test {
         TestServer,
     };
     use serde_json::json;
+    use serial_test::serial;
     use std::path::PathBuf;
 
     use super::*;
 
     async fn clear_data_dir() {
         let _ = tokio::fs::remove_dir_all(PathBuf::new().join("data")).await;
-        let _ = tokio::fs::create_dir_all(PathBuf::new().join("data").join("files")).await;
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_successful_upload() {
         clear_data_dir().await;
-
         let app = app();
         let server = TestServer::new(app).unwrap();
         let info = json!({
@@ -65,9 +65,9 @@ mod api_test {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_empty_get() {
         clear_data_dir().await;
-
         let app = app();
         let server = TestServer::new(app).unwrap();
         let response = server.get("/api/clipboards").await;
@@ -75,9 +75,9 @@ mod api_test {
     }
 
     #[tokio::test]
+    #[serial]
     async fn test_successful_get() {
         clear_data_dir().await;
-
         let app = app();
         let server = TestServer::new(app).unwrap();
         let info = json!({
