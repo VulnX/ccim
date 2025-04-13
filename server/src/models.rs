@@ -16,16 +16,16 @@ pub fn get_files_dir() -> PathBuf {
 #[derive(Debug, Deserialize)]
 pub struct ClipboardOptions {
     pub name: String,
-    pub is_encrypted: bool,
+    pub passwd_hash: String,
     pub expire_after: i64,
 }
 
 #[derive(Debug)]
 pub struct CreateClipboardPayload {
-    pub name: String,
-    pub text: Option<String>,
-    pub files: Option<HashMap<String, String>>,
-    pub is_encrypted: bool,
+    pub clipboard_name: String,
+    pub text_file_id: Option<String>,
+    pub files: HashMap<String, String>,
+    pub passwd_hash: String,
     pub expiry: i64,
 }
 
@@ -112,9 +112,9 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         conn.execute(
             "INSERT INTO clipboards (clipboard_name, text_file_id, is_encrypted, expiry) VALUES (?1, ?2, ?3, ?4)",
             params![
-                clipboard.name,
-                clipboard.text,
-                clipboard.is_encrypted,
+                clipboard.clipboard_name,
+                clipboard.text_file_id,
+                clipboard.passwd_hash,
                 clipboard.expiry
             ],
         )
@@ -136,17 +136,15 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                 Error::UnhandledError(e.into())
             }
         })?;
-        if let Some(files) = clipboard.files {
-            for (name, id) in files {
-                conn.execute(
+        for (name, id) in clipboard.files {
+            conn.execute(
                     "INSERT INTO clipboard_files (file_id, file_name, clipboard_name) VALUES (?1, ?2, ?3)",
-                    params![id, name, clipboard.name,],
+                    params![id, name, clipboard.clipboard_name,],
                 )
                 .map_err(|e| {
                     // Only constraint is on `id` field which is realistically never going to collide
                     Error::UnhandledError(e.into())
                 })?;
-            }
         }
         Ok(())
     }
@@ -194,7 +192,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             };
 
             for file in files_rows.filter_map(|row| row.ok()) {
-                    clipboard.files.insert(file.file_name, file.file_id);
+                clipboard.files.insert(file.file_name, file.file_id);
             }
 
             clipboards.push(clipboard);
@@ -202,7 +200,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         Ok(clipboards)
     }
 
-    /// Asynchronously deletes a clipboard entry and associated clipboard files from the database.
+    /// Deletes a clipboard entry and associated clipboard files from the database.
     ///
     /// # Arguments
     /// * `clipboard_name` - The name of the clipboard to be deleted.

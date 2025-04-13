@@ -49,7 +49,7 @@ mod api_test {
     #[serial]
     async fn test_running_server() {
         let server = init_test().await;
-        
+
         let response = server.get("/api/status").await;
         response.assert_status(StatusCode::OK);
     }
@@ -58,7 +58,7 @@ mod api_test {
     #[serial]
     async fn test_successful_upload() {
         let server = init_test().await;
-        
+
         let info = json!({
             "name": "some clipboard name",
             "is_encrypted": false,
@@ -71,7 +71,7 @@ mod api_test {
             .add_part("text", text)
             .add_part("file", file)
             .add_part("info", info);
-        
+
         let response = server.post("/api/clipboards").multipart(form).await;
         response.assert_status(StatusCode::CREATED);
     }

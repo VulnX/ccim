@@ -10,7 +10,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 pub enum Error {
     UnhandledError(anyhow::Error),
     NameAlreadyExistsInDB,
-    ClipboardDoesNotExist
+    ClipboardDoesNotExist,
 }
 
 impl IntoResponse for Error {
@@ -27,7 +27,8 @@ impl IntoResponse for Error {
                 StatusCode::NOT_FOUND,
                 json!({
                     "message": "Clipboard does not exist"
-                }).to_string()
+                })
+                .to_string(),
             ),
             Error::UnhandledError(msg) => {
                 error!("UNHANDLED ERROR : {msg}");

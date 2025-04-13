@@ -37,9 +37,9 @@ async fn create_clipboard(
     State(db_controller): State<models::DatabaseController>,
     mut multipart: Multipart,
 ) -> Result<StatusCode> {
-    let mut files: Option<HashMap<String, String>> = None;
-    let mut text: Option<String> = None;
-    let mut info: Option<models::ClipboardOptions> = None;
+    let mut files: HashMap<String, String> = HashMap::new();
+    let mut text_file_id: Option<String> = None;
+    let mut clipboard_info: Option<models::ClipboardOptions> = None;
 
     // Parse multipart payload and store text/file(s)
     while let Some(mut field) = multipart.next_field().await.unwrap() {
@@ -47,12 +47,12 @@ async fn create_clipboard(
         let path = get_files_dir().join(&id);
         match field.name().unwrap() {
             "text" => {
-                if text.is_none() {
+                if text_file_id.is_none() {
                     let mut file = File::create(&path).await.unwrap();
                     while let Some(chunk) = field.chunk().await.unwrap() {
                         file.write_all(&chunk).await.unwrap();
                     }
-                    text = Some(id);
+                    text_file_id = Some(id);
                 }
             }
             "file" => {
@@ -60,19 +60,17 @@ async fn create_clipboard(
                 while let Some(chunk) = field.chunk().await.unwrap() {
                     file.write_all(&chunk).await.unwrap();
                 }
-                if files.is_none() {
-                    files = Some(HashMap::new());
-                }
-                if let Some(file_list) = &mut files {
-                    file_list.insert(field.file_name().unwrap().to_string(), id);
-                }
+                let file_name = field.file_name().unwrap().to_string();
+                files.insert(file_name, id);
             }
             "info" => {
-                let info_ = field.bytes().await.unwrap();
-                let info_ = std::str::from_utf8(&info_).unwrap();
-                let info_ = serde_json::from_str::<models::ClipboardOptions>(info_.into()).unwrap();
-                if info.is_none() {
-                    info = Some(info_);
+                let info = field.bytes().await.unwrap();
+                let info = std::str::from_utf8(&info).unwrap();
+                let Ok(info) = serde_json::from_str::<models::ClipboardOptions>(info.into()) else {
+                    return Ok(StatusCode::BAD_REQUEST);
+                };
+                if clipboard_info.is_none() {
+                    clipboard_info = Some(info);
                 }
             }
             _ => {}
@@ -80,17 +78,17 @@ async fn create_clipboard(
     }
 
     // Create clipboard payload
-    let Some(info) = info else {
+    let Some(info) = clipboard_info else {
         return Ok(StatusCode::BAD_REQUEST);
     };
     let expiry = Utc::now().timestamp() + info.expire_after;
     let name = info.name;
-    let is_encrypted = info.is_encrypted;
+    let passwd_hash = info.passwd_hash;
     let clipboard = models::CreateClipboardPayload {
-        name,
-        text: text.clone(),
+        clipboard_name: name,
+        text_file_id: text_file_id.clone(),
         files: files.clone(),
-        is_encrypted,
+        passwd_hash,
         expiry,
     };
 
@@ -102,17 +100,15 @@ async fn create_clipboard(
                 // Reject this request because unique `name` constraint not satisfied
                 crate::error::Error::NameAlreadyExistsInDB => {
                     // Cleanup stored text/file(s) since this request will be rejected
-                    if let Some(text) = text {
+                    if let Some(text) = text_file_id {
                         tokio::fs::remove_file(get_files_dir().join(text))
                             .await
                             .unwrap();
                     }
-                    if let Some(files) = files {
-                        for (_name, id) in files {
-                            tokio::fs::remove_file(get_files_dir().join(id))
-                                .await
-                                .unwrap();
-                        }
+                    for (_name, id) in files {
+                        tokio::fs::remove_file(get_files_dir().join(id))
+                            .await
+                            .unwrap();
                     }
                     Err(e)
                 }
@@ -180,4 +176,3 @@ async fn delete_clipboard(
     }
     Ok(StatusCode::NO_CONTENT)
 }
-
