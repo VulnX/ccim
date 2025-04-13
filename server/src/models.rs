@@ -55,7 +55,7 @@ pub struct FullClipboardData {
 struct ClipboardsEntry {
     clipboard_name: String,
     text_file_id: Option<String>,
-    is_encrypted: bool,
+    passwd_hash: String,
     _expiry: i64,
 }
 
@@ -80,7 +80,7 @@ impl DatabaseController {
 (
   clipboard_name TEXT NOT NULL,
   text_file_id TEXT,
-  is_encrypted INT NOT NULL,
+  passwd_hash TEXT,
   expiry INT NOT NULL,
   PRIMARY KEY (clipboard_name),
   UNIQUE (text_file_id)
@@ -96,7 +96,6 @@ CREATE TABLE IF NOT EXISTS clipboard_files
   file_name TEXT NOT NULL,
   clipboard_name TEXT NOT NULL,
   PRIMARY KEY (file_id, file_name, clipboard_name),
-  UNIQUE (file_id),
   FOREIGN KEY (clipboard_name) REFERENCES clipboards(clipboard_name)
 );",
             [],
@@ -110,7 +109,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
     pub async fn add_clipboard(&self, clipboard: CreateClipboardPayload) -> Result<()> {
         let conn = self.db.lock().await;
         conn.execute(
-            "INSERT INTO clipboards (clipboard_name, text_file_id, is_encrypted, expiry) VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO clipboards (clipboard_name, text_file_id, passwd_hash, expiry) VALUES (?1, ?2, ?3, ?4)",
             params![
                 clipboard.clipboard_name,
                 clipboard.text_file_id,
@@ -153,7 +152,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         let conn = self.db.lock().await;
 
         let mut stmt = conn
-            .prepare("SELECT clipboard_name, text_file_id, is_encrypted, expiry FROM clipboards")
+            .prepare("SELECT clipboard_name, text_file_id, passwd_hash, expiry FROM clipboards")
             .map_err(|e| Error::UnhandledError(e.into()))?;
 
         let clipboard_rows = stmt
@@ -161,7 +160,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                 Ok(ClipboardsEntry {
                     clipboard_name: row.get(0)?,
                     text_file_id: row.get(1)?,
-                    is_encrypted: row.get(2)?,
+                    passwd_hash: row.get(2)?,
                     _expiry: row.get(3)?,
                 })
             })
@@ -187,7 +186,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             let mut clipboard = FullClipboardData {
                 name: clipboard_row.clipboard_name,
                 text: clipboard_row.text_file_id,
-                is_encrypted: clipboard_row.is_encrypted,
+                is_encrypted: clipboard_row.passwd_hash.is_empty(),
                 files: HashMap::new(),
             };
 

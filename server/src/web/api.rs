@@ -43,11 +43,11 @@ async fn create_clipboard(
 
     // Parse multipart payload and store text/file(s)
     while let Some(mut field) = multipart.next_field().await.unwrap() {
-        let id = uuid::Uuid::new_v4().to_string();
-        let path = get_files_dir().join(&id);
         match field.name().unwrap() {
             "text" => {
                 if text_file_id.is_none() {
+                    let id = uuid::Uuid::new_v4().to_string();
+                    let path = get_files_dir().join(&id);
                     let mut file = File::create(&path).await.unwrap();
                     while let Some(chunk) = field.chunk().await.unwrap() {
                         file.write_all(&chunk).await.unwrap();
@@ -56,6 +56,8 @@ async fn create_clipboard(
                 }
             }
             "file" => {
+                let id = uuid::Uuid::new_v4().to_string();
+                let path = get_files_dir().join(&id);
                 let mut file = File::create(&path).await.unwrap();
                 while let Some(chunk) = field.chunk().await.unwrap() {
                     file.write_all(&chunk).await.unwrap();
@@ -79,7 +81,7 @@ async fn create_clipboard(
 
     // Create clipboard payload
     let Some(info) = clipboard_info else {
-        return Ok(StatusCode::BAD_REQUEST);
+        return Ok(StatusCode::BAD_REQUEST); // No clipboard info supplied
     };
     let expiry = Utc::now().timestamp() + info.expire_after;
     let name = info.name;
@@ -100,8 +102,8 @@ async fn create_clipboard(
                 // Reject this request because unique `name` constraint not satisfied
                 crate::error::Error::NameAlreadyExistsInDB => {
                     // Cleanup stored text/file(s) since this request will be rejected
-                    if let Some(text) = text_file_id {
-                        tokio::fs::remove_file(get_files_dir().join(text))
+                    if let Some(id) = text_file_id {
+                        tokio::fs::remove_file(get_files_dir().join(id))
                             .await
                             .unwrap();
                     }

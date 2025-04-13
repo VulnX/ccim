@@ -61,7 +61,7 @@ mod api_test {
 
         let info = json!({
             "name": "some clipboard name",
-            "is_encrypted": false,
+            "passwd_hash": "AAAABBBB",
             "expire_after": 300,
         });
         let info = Part::text(info.to_string());
@@ -78,6 +78,44 @@ mod api_test {
 
     #[tokio::test]
     #[serial]
+    async fn test_duplicate_upload() {
+        let server = init_test().await;
+
+        let info = json!({
+            "name": "some clipboard name",
+            "passwd_hash": "AAAABBBB",
+            "expire_after": 300,
+        });
+        let info = Part::text(info.to_string());
+        let text = Part::text("some clipboard text here");
+        let file = Part::bytes("file contents here".as_bytes().to_vec()).file_name("example.txt");
+        let form = MultipartForm::new()
+            .add_part("text", text)
+            .add_part("file", file)
+            .add_part("info", info);
+
+        let response = server.post("/api/clipboards").multipart(form).await;
+        response.assert_status(StatusCode::CREATED);
+
+        let info = json!({
+            "name": "some clipboard name",
+            "passwd_hash": "AAAABBBB",
+            "expire_after": 300,
+        });
+        let info = Part::text(info.to_string());
+        let text = Part::text("some clipboard text here");
+        let file = Part::bytes("file contents here".as_bytes().to_vec()).file_name("example.txt");
+        let form = MultipartForm::new()
+            .add_part("text", text)
+            .add_part("file", file)
+            .add_part("info", info);
+
+        let response = server.post("/api/clipboards").multipart(form).await;
+        response.assert_status(StatusCode::CONFLICT);
+    }
+
+    #[tokio::test]
+    #[serial]
     async fn test_successful_get() {
         let server = init_test().await;
 
@@ -86,7 +124,7 @@ mod api_test {
 
         let info = json!({
             "name": "some clipboard name",
-            "is_encrypted": false,
+            "passwd_hash": "AAAABBBB",
             "expire_after": 300,
         });
         let info = Part::text(info.to_string());
@@ -109,7 +147,7 @@ mod api_test {
 
         let info = json!({
             "name": "clip1",
-            "is_encrypted": false,
+            "passwd_hash": "AAAABBBB",
             "expire_after": 30,
         });
         let info = Part::text(info.to_string());
@@ -118,7 +156,7 @@ mod api_test {
         response.assert_status(StatusCode::CREATED);
         let info = json!({
             "name": "clip2",
-            "is_encrypted": false,
+            "passwd_hash": "AAAABBBB",
             "expire_after": 30,
         });
         let info = Part::text(info.to_string());
