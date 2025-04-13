@@ -165,14 +165,14 @@ async fn delete_clipboard(
     Path(name): Path<String>,
 ) -> Result<StatusCode> {
     let to_be_deleted = db_controller.delete_clipboard(name).await?;
-    if let Some(text_id) = to_be_deleted.text_file_id {
-        tokio::fs::remove_file(get_files_dir().join(text_id))
+    if let Some(id) = to_be_deleted.text_file_id {
+        tokio::fs::remove_file(get_files_dir().join(id))
             .await
             .map_err(|e| Error::UnhandledError(e.into()))?;
     }
 
-    for file_id in to_be_deleted.file_ids {
-        tokio::fs::remove_file(get_files_dir().join(file_id))
+    for id in to_be_deleted.file_ids {
+        tokio::fs::remove_file(get_files_dir().join(id))
             .await
             .map_err(|e| Error::UnhandledError(e.into()))?;
     }

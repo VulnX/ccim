@@ -1,6 +1,6 @@
 use crate::error::{Error, Result};
 use axum::extract::FromRef;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::Mutex;
@@ -215,17 +215,13 @@ CREATE TABLE IF NOT EXISTS clipboard_files
 
         // Check the given name against expiry (non null) field to determine if name is valid or not
         let mut stmt = conn
-            .prepare("SELECT expiry FROM clipboards WHERE clipboard_name = ?")
+            .prepare("SELECT 1 FROM clipboards WHERE clipboard_name = ?")
             .map_err(|e| Error::UnhandledError(e.into()))?;
-        if stmt
-            .query_map([&clipboard_name], |row| {
-                let expiry: i64 = row.get(0)?;
-                Ok(expiry)
-            })
-            .map_err(|e| Error::UnhandledError(e.into()))?
-            .next()
-            .is_none()
-        {
+        let exists = stmt
+            .query_row([&clipboard_name], |_| Ok(()))
+            .optional()
+            .map_err(|e| Error::UnhandledError(e.into()))?;
+        if exists.is_none() {
             return Err(Error::ClipboardDoesNotExist);
         }
 
@@ -270,7 +266,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
 
         // Return a successful response containing the text_file_id and associated file_ids.
         Ok(DeleteClipboardResponse {
-            text_file_id: text_file_id,
+            text_file_id,
             file_ids,
         })
     }
