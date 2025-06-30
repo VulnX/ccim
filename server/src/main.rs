@@ -4,6 +4,7 @@ use tracing::Level;
 
 mod error;
 mod models;
+mod util;
 mod web;
 
 #[tokio::main]

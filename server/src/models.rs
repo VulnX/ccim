@@ -1,17 +1,12 @@
-use crate::error::{Error, Result};
+use crate::{
+    error::{Error, Result},
+    util,
+};
 use axum::extract::FromRef;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
-
-fn get_data_dir() -> PathBuf {
-    PathBuf::new().join("data")
-}
-
-pub fn get_files_dir() -> PathBuf {
-    get_data_dir().join("files")
-}
 
 #[derive(Debug, Deserialize)]
 pub struct ClipboardOptions {
@@ -78,8 +73,8 @@ impl Default for DatabaseController {
 
 impl DatabaseController {
     pub fn new() -> Self {
-        std::fs::create_dir_all(get_files_dir()).unwrap();
-        let conn = Connection::open(get_data_dir().join("database.db3")).unwrap();
+        std::fs::create_dir_all(util::get_files_dir()).unwrap();
+        let conn = Connection::open(util::get_data_dir().join("database.db3")).unwrap();
         conn.execute(
             "
 CREATE TABLE IF NOT EXISTS clipboards

@@ -12,7 +12,7 @@ use tower_http::limit::RequestBodyLimitLayer;
 
 use crate::{
     error::{Error, Result},
-    models,
+    models, util,
 };
 
 const FILES_MAX_SIZE: usize = 100;
@@ -53,7 +53,7 @@ async fn create_clipboard(
             "text" => {
                 if text_file_id.is_none() {
                     let id = uuid::Uuid::new_v4().to_string();
-                    let path = models::get_files_dir().join(&id);
+                    let path = util::get_files_dir().join(&id);
                     let mut file = File::create(&path).await.unwrap();
                     while let Some(chunk) = field.chunk().await.unwrap() {
                         file.write_all(&chunk).await.unwrap();
@@ -64,7 +64,7 @@ async fn create_clipboard(
             }
             "file" => {
                 let id = uuid::Uuid::new_v4().to_string();
-                let path = models::get_files_dir().join(&id);
+                let path = util::get_files_dir().join(&id);
                 let mut file = File::create(&path).await.unwrap();
                 while let Some(chunk) = field.chunk().await.unwrap() {
                     file.write_all(&chunk).await.unwrap();
@@ -78,12 +78,14 @@ async fn create_clipboard(
                     let info = field.bytes().await.unwrap();
                     let info = std::str::from_utf8(&info).unwrap();
                     let Ok(info) = serde_json::from_str::<models::ClipboardOptions>(info) else {
+                        util::cleanup_files(text_file_id, files.values().cloned().collect()).await;
                         return Err(Error::BadRequest(Some(
                             "Failed to parse json field `info`".into(),
                         )));
                     };
                     // Sanity check : Ensure expiry is no more than 24 hours
                     if 24 * 60 * 60 < info.expire_after {
+                        util::cleanup_files(text_file_id, files.values().cloned().collect()).await;
                         return Err(Error::BadRequest(Some(
                             "Clipboard lifetime cannot exceed 24 hours".into(),
                         )));
@@ -97,6 +99,7 @@ async fn create_clipboard(
 
     // Create clipboard payload
     let Some(clipboard_info) = clipboard_info else {
+        util::cleanup_files(text_file_id, files.values().cloned().collect()).await;
         return Err(Error::BadRequest(Some("No clipboard info supplied".into())));
     };
     let expiry = Utc::now().timestamp() as u64 + clipboard_info.expire_after;
@@ -115,16 +118,7 @@ async fn create_clipboard(
         Ok(_) => Ok(()),
         Err(e) => {
             // Cleanup stored text/file(s) since this request will be rejected
-            if let Some(id) = text_file_id {
-                tokio::fs::remove_file(models::get_files_dir().join(id))
-                    .await
-                    .unwrap();
-            }
-            for (_name, id) in files {
-                tokio::fs::remove_file(models::get_files_dir().join(id))
-                    .await
-                    .unwrap();
-            }
+            util::cleanup_files(text_file_id, files.values().cloned().collect()).await;
             Err(e)
         }
     }?;
@@ -139,7 +133,7 @@ async fn list_clipboards(
     let mut res: Vec<models::GetClipboardsResponse> = Vec::new();
     for clipboard in &mut clipboards {
         if let Some(text_file_id) = &clipboard.text {
-            let text = tokio::fs::read_to_string(models::get_files_dir().join(text_file_id))
+            let text = tokio::fs::read_to_string(util::get_files_dir().join(text_file_id))
                 .await
                 .map_err(|e| Error::Unhandled(e.into()))?;
             clipboard.text = Some(text);
@@ -171,16 +165,6 @@ async fn delete_clipboard(
     Path(name): Path<String>,
 ) -> Result<StatusCode> {
     let to_be_deleted = db_controller.delete_clipboard(name).await?;
-    if let Some(id) = to_be_deleted.text_file_id {
-        tokio::fs::remove_file(models::get_files_dir().join(id))
-            .await
-            .map_err(|e| Error::Unhandled(e.into()))?;
-    }
-
-    for id in to_be_deleted.file_ids {
-        tokio::fs::remove_file(models::get_files_dir().join(id))
-            .await
-            .map_err(|e| Error::Unhandled(e.into()))?;
-    }
+    util::cleanup_files(to_be_deleted.text_file_id, to_be_deleted.file_ids).await;
     Ok(StatusCode::NO_CONTENT)
 }
