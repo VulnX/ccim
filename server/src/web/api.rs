@@ -58,6 +58,7 @@ async fn create_clipboard(
                     while let Some(chunk) = field.chunk().await.unwrap() {
                         file.write_all(&chunk).await.unwrap();
                     }
+                    file.flush().await.unwrap();
                     text_file_id = Some(id);
                 }
             }
@@ -68,6 +69,7 @@ async fn create_clipboard(
                 while let Some(chunk) = field.chunk().await.unwrap() {
                     file.write_all(&chunk).await.unwrap();
                 }
+                file.flush().await.unwrap();
                 let file_name = field.file_name().unwrap().to_string();
                 files.insert(file_name, id);
             }
