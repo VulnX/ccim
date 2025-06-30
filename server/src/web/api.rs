@@ -78,8 +78,16 @@ async fn create_clipboard(
                     let info = field.bytes().await.unwrap();
                     let info = std::str::from_utf8(&info).unwrap();
                     let Ok(info) = serde_json::from_str::<models::ClipboardOptions>(info) else {
-                        return Ok(StatusCode::BAD_REQUEST);
+                        return Err(Error::BadRequest(Some(
+                            "Failed to parse json field `info`".into(),
+                        )));
                     };
+                    // Sanity check : Ensure expiry is no more than 24 hours
+                    if 24 * 60 * 60 < info.expire_after {
+                        return Err(Error::BadRequest(Some(
+                            "Clipboard lifetime cannot exceed 24 hours".into(),
+                        )));
+                    }
                     clipboard_info = Some(info);
                 }
             }
@@ -89,9 +97,9 @@ async fn create_clipboard(
 
     // Create clipboard payload
     let Some(clipboard_info) = clipboard_info else {
-        return Ok(StatusCode::BAD_REQUEST); // No clipboard info supplied
+        return Err(Error::BadRequest(Some("No clipboard info supplied".into())));
     };
-    let expiry = Utc::now().timestamp() + clipboard_info.expire_after;
+    let expiry = Utc::now().timestamp() as u64 + clipboard_info.expire_after;
     let clipboard_name = clipboard_info.name;
     let passwd_hash = clipboard_info.passwd_hash;
     let clipboard = models::CreateClipboardPayload {

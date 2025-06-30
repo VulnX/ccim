@@ -17,7 +17,7 @@ pub fn get_files_dir() -> PathBuf {
 pub struct ClipboardOptions {
     pub name: String,
     pub passwd_hash: String,
-    pub expire_after: i64,
+    pub expire_after: u64,
 }
 
 #[derive(Debug)]
@@ -26,7 +26,7 @@ pub struct CreateClipboardPayload {
     pub text_file_id: Option<String>,
     pub files: HashMap<String, String>,
     pub passwd_hash: String,
-    pub expiry: i64,
+    pub expiry: u64,
 }
 
 #[derive(Debug)]
@@ -56,7 +56,7 @@ struct ClipboardsEntry {
     clipboard_name: String,
     text_file_id: Option<String>,
     passwd_hash: String,
-    _expiry: i64,
+    _expiry: u64,
 }
 
 #[derive(Debug)]
