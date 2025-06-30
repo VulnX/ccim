@@ -15,6 +15,10 @@ use crate::{
     models,
 };
 
+const FILES_MAX_SIZE: usize = 100;
+const TEXT_MAX_SIZE: usize = 1;
+const ADDITIONAL_BUFFER_SIZE: usize = 1;
+
 pub fn routes() -> Router {
     let db_controller = models::DatabaseController::new();
     Router::new()
@@ -26,7 +30,9 @@ pub fn routes() -> Router {
         .route("/status", get(status))
         .with_state(db_controller)
         .layer(DefaultBodyLimit::disable())
-        .layer(RequestBodyLimitLayer::new((100 + 1 + 1) * 1024 * 1024)) // 100MiB for files, 1MiB for text & 1MiB buffer space
+        .layer(RequestBodyLimitLayer::new(
+            (FILES_MAX_SIZE + TEXT_MAX_SIZE + ADDITIONAL_BUFFER_SIZE) * 1024 * 1024,
+        ))
 }
 
 async fn status() -> Result<StatusCode> {
