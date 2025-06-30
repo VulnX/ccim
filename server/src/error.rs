@@ -8,7 +8,7 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
-    UnhandledError(anyhow::Error),
+    Unhandled(anyhow::Error),
     NameAlreadyExistsInDB,
     ClipboardDoesNotExist,
 }
@@ -30,7 +30,7 @@ impl IntoResponse for Error {
                 })
                 .to_string(),
             ),
-            Error::UnhandledError(msg) => {
+            Error::Unhandled(msg) => {
                 error!("UNHANDLED ERROR : {msg}");
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,

@@ -1,6 +1,7 @@
 use anyhow::Result;
 use axum::Router;
 use tracing::Level;
+
 mod error;
 mod models;
 mod web;
@@ -14,7 +15,7 @@ async fn main() -> Result<()> {
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
 
-    println!("starting axum server on : {:?}", listener);
+    println!("starting axum server on : {listener:?}");
     axum::serve(listener, app()).await?;
 
     Ok(())
