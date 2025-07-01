@@ -1,6 +1,6 @@
 use anyhow::Result;
 use axum::Router;
-use tracing::Level;
+use tracing::{info, Level};
 
 mod error;
 mod models;
@@ -14,9 +14,11 @@ async fn main() -> Result<()> {
         .with_max_level(Level::DEBUG)
         .init();
 
+    util::generate_key_pair().await.unwrap();
+
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
 
-    println!("starting axum server on : {listener:?}");
+    info!("Starting axum server on : {listener:?}");
     axum::serve(listener, app()).await?;
 
     Ok(())
@@ -34,14 +36,17 @@ mod api_test {
         multipart::{MultipartForm, Part},
         TestServer,
     };
+    use chrono::Utc;
     use serde_json::json;
     use serial_test::serial;
-    use std::path::PathBuf;
 
     use super::*;
 
     async fn init_test() -> TestServer {
-        let _ = tokio::fs::remove_dir_all(PathBuf::new().join("data")).await;
+        // Remove only the stores files and database
+        // Retain the key pair files to avoid unnecessary slowdown between tests
+        let _ = tokio::fs::remove_dir_all(util::get_files_dir()).await;
+        let _ = tokio::fs::remove_file(util::get_data_dir().join("database.db3")).await;
         let app = app();
         let server = TestServer::new(app).unwrap();
         server
@@ -51,7 +56,6 @@ mod api_test {
     #[serial]
     async fn test_running_server() {
         let server = init_test().await;
-
         let response = server.get("/api/status").await;
         response.assert_status(StatusCode::OK);
     }
@@ -61,10 +65,15 @@ mod api_test {
     async fn test_successful_upload() {
         let server = init_test().await;
 
+        let passwd_hash = json!({
+            "hash": vec![0],
+            "timestamp": Utc::now().timestamp() as u64,
+        })
+        .to_string();
         let info = json!({
             "name": "some clipboard name",
-            "passwd_hash": "AAAABBBB",
             "expire_after": 300,
+            "passwd_hash": util::encrypt(passwd_hash.into()).await,
         });
         let info = Part::text(info.to_string());
         let text = Part::text("some clipboard text here");
@@ -83,10 +92,15 @@ mod api_test {
     async fn test_duplicate_upload() {
         let server = init_test().await;
 
+        let passwd_hash = json!({
+            "hash": vec![0],
+            "timestamp": Utc::now().timestamp() as u64,
+        })
+        .to_string();
         let info = json!({
             "name": "some clipboard name",
-            "passwd_hash": "AAAABBBB",
             "expire_after": 300,
+            "passwd_hash": util::encrypt(passwd_hash.into()).await,
         });
         let info = Part::text(info.to_string());
         let text = Part::text("some clipboard text here");
@@ -99,10 +113,15 @@ mod api_test {
         let response = server.post("/api/clipboards").multipart(form).await;
         response.assert_status(StatusCode::CREATED);
 
+        let passwd_hash = json!({
+            "hash": vec![0],
+            "timestamp": Utc::now().timestamp() as u64,
+        })
+        .to_string();
         let info = json!({
             "name": "some clipboard name",
-            "passwd_hash": "AAAABBBB",
             "expire_after": 300,
+            "passwd_hash": util::encrypt(passwd_hash.into()).await,
         });
         let info = Part::text(info.to_string());
         let text = Part::text("some clipboard text here");
@@ -124,10 +143,15 @@ mod api_test {
         let response = server.get("/api/clipboards").await;
         response.assert_status(StatusCode::NO_CONTENT);
 
+        let passwd_hash = json!({
+            "hash": vec![0],
+            "timestamp": Utc::now().timestamp() as u64,
+        })
+        .to_string();
         let info = json!({
             "name": "some clipboard name",
-            "passwd_hash": "AAAABBBB",
             "expire_after": 300,
+            "passwd_hash": util::encrypt(passwd_hash.into()).await,
         });
         let info = Part::text(info.to_string());
         let text = Part::text("some clipboard text here");
@@ -136,7 +160,8 @@ mod api_test {
             .add_part("text", text)
             .add_part("file", file)
             .add_part("info", info);
-        server.post("/api/clipboards").multipart(form).await;
+        let response = server.post("/api/clipboards").multipart(form).await;
+        response.assert_status(StatusCode::CREATED);
 
         let response = server.get("/api/clipboards").await;
         response.assert_status(StatusCode::OK);
@@ -147,19 +172,29 @@ mod api_test {
     async fn test_delete() {
         let server = init_test().await;
 
+        let passwd_hash = json!({
+            "hash": vec![0],
+            "timestamp": Utc::now().timestamp() as u64,
+        })
+        .to_string();
         let info = json!({
             "name": "clip1",
-            "passwd_hash": "AAAABBBB",
-            "expire_after": 30,
+            "expire_after": 300,
+            "passwd_hash": util::encrypt(passwd_hash.into()).await,
         });
         let info = Part::text(info.to_string());
         let form = MultipartForm::new().add_part("info", info);
         let response = server.post("/api/clipboards").multipart(form).await;
         response.assert_status(StatusCode::CREATED);
+        let passwd_hash = json!({
+            "hash": vec![0],
+            "timestamp": Utc::now().timestamp() as u64,
+        })
+        .to_string();
         let info = json!({
             "name": "clip2",
-            "passwd_hash": "AAAABBBB",
-            "expire_after": 30,
+            "expire_after": 300,
+            "passwd_hash": util::encrypt(passwd_hash.into()).await,
         });
         let info = Part::text(info.to_string());
         let text = Part::text("some text here");

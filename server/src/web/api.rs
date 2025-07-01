@@ -22,12 +22,13 @@ const ADDITIONAL_BUFFER_SIZE: usize = 1;
 pub fn routes() -> Router {
     let db_controller = models::DatabaseController::new();
     Router::new()
+        .route("/status", get(status))
+        .route("/publickey", get(public_key))
         .route("/clipboards", post(create_clipboard).get(list_clipboards))
         .route(
             "/clipboard/{name}",
             patch(update_clipboard).delete(delete_clipboard),
         )
-        .route("/status", get(status))
         .with_state(db_controller)
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(
@@ -37,6 +38,13 @@ pub fn routes() -> Router {
 
 async fn status() -> Result<StatusCode> {
     Ok(StatusCode::OK)
+}
+
+async fn public_key() -> Result<String> {
+    let public_key_pem = tokio::fs::read_to_string(util::get_data_dir().join("public.pem"))
+        .await
+        .map_err(|e| Error::Unhandled(e.into()))?;
+    Ok(public_key_pem)
 }
 
 async fn create_clipboard(
@@ -75,14 +83,28 @@ async fn create_clipboard(
             }
             "info" => {
                 if clipboard_info.is_none() {
-                    let info = field.bytes().await.unwrap();
-                    let info = std::str::from_utf8(&info).unwrap();
-                    let Ok(info) = serde_json::from_str::<models::ClipboardOptions>(info) else {
+                    let info = field.bytes().await.unwrap().to_vec();
+                    let Ok(info) = serde_json::from_slice::<models::ClipboardOptionsRequest>(&info)
+                    else {
                         util::cleanup_files(text_file_id, files.values().cloned().collect()).await;
                         return Err(Error::BadRequest(Some(
-                            "Failed to parse json field `info`".into(),
+                            "Failed to parse json field `ClipboardOptionsRequest`".into(),
                         )));
                     };
+                    let hash = util::decrypt(info.passwd_hash).await?;
+                    let Ok(hash) = serde_json::from_slice::<models::PasswdHash>(&hash) else {
+                        util::cleanup_files(text_file_id, files.values().cloned().collect()).await;
+                        return Err(Error::BadRequest(Some(
+                            "Failed to parse json field `PasswdHash`".into(),
+                        )));
+                    };
+                    // Ensure that the hash is latest (to avoid hash replay attack)
+                    if 5 * 60 < Utc::now().timestamp() as u64 - hash.timestamp {
+                        util::cleanup_files(text_file_id, files.values().cloned().collect()).await;
+                        return Err(Error::BadRequest(Some(
+                            "Timeout! timestamp difference cannot exceed 5 minutes".into(),
+                        )));
+                    }
                     // Sanity check : Ensure expiry is no more than 24 hours
                     if 24 * 60 * 60 < info.expire_after {
                         util::cleanup_files(text_file_id, files.values().cloned().collect()).await;
@@ -90,7 +112,11 @@ async fn create_clipboard(
                             "Clipboard lifetime cannot exceed 24 hours".into(),
                         )));
                     }
-                    clipboard_info = Some(info);
+                    clipboard_info = Some(models::ClipboardOptions {
+                        name: info.name,
+                        expire_after: info.expire_after,
+                        passwd_hash: hash,
+                    });
                 }
             }
             _ => {} // Don't care about any other field (not a part of API)

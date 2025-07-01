@@ -9,10 +9,23 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
 #[derive(Debug, Deserialize)]
+pub struct ClipboardOptionsRequest {
+    pub name: String,
+    pub expire_after: u64,
+    pub passwd_hash: Vec<u8>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ClipboardOptions {
     pub name: String,
-    pub passwd_hash: String,
     pub expire_after: u64,
+    pub passwd_hash: PasswdHash,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PasswdHash {
+    pub hash: Vec<u8>,
+    pub timestamp: u64,
 }
 
 #[derive(Debug)]
@@ -20,7 +33,7 @@ pub struct CreateClipboardPayload {
     pub clipboard_name: String,
     pub text_file_id: Option<String>,
     pub files: HashMap<String, String>,
-    pub passwd_hash: String,
+    pub passwd_hash: PasswdHash,
     pub expiry: u64,
 }
 
@@ -50,7 +63,7 @@ pub struct FullClipboardData {
 struct ClipboardsEntry {
     clipboard_name: String,
     text_file_id: Option<String>,
-    passwd_hash: String,
+    passwd_hash: Vec<u8>,
     _expiry: u64,
 }
 
@@ -81,7 +94,7 @@ CREATE TABLE IF NOT EXISTS clipboards
 (
   clipboard_name TEXT NOT NULL,
   text_file_id TEXT,
-  passwd_hash TEXT,
+  passwd_hash BLOB,
   expiry INT NOT NULL,
   PRIMARY KEY (clipboard_name),
   UNIQUE (text_file_id)
@@ -114,7 +127,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             params![
                 clipboard.clipboard_name,
                 clipboard.text_file_id,
-                clipboard.passwd_hash,
+                clipboard.passwd_hash.hash,
                 clipboard.expiry
             ],
         )
