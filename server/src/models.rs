@@ -12,14 +12,14 @@ use tokio::sync::Mutex;
 pub struct ClipboardOptionsRequest {
     pub name: String,
     pub expire_after: u64,
-    pub passwd_hash: Vec<u8>,
+    pub passwd_hash: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct ClipboardOptions {
+pub struct ClipboardInfo {
     pub name: String,
     pub expire_after: u64,
-    pub passwd_hash: PasswdHash,
+    pub passwd_hash: Option<PasswdHash>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -33,7 +33,7 @@ pub struct CreateClipboardPayload {
     pub clipboard_name: String,
     pub text_file_id: Option<String>,
     pub files: HashMap<String, String>,
-    pub passwd_hash: PasswdHash,
+    pub passwd_hash: Option<PasswdHash>,
     pub expiry: u64,
 }
 
@@ -122,12 +122,13 @@ CREATE TABLE IF NOT EXISTS clipboard_files
 
     pub async fn add_clipboard(&self, clipboard: CreateClipboardPayload) -> Result<()> {
         let conn = self.db.lock().await;
+        let passwd_hash = clipboard.passwd_hash.map(|passwd_hash| passwd_hash.hash);
         conn.execute(
             "INSERT INTO clipboards (clipboard_name, text_file_id, passwd_hash, expiry) VALUES (?1, ?2, ?3, ?4)",
             params![
                 clipboard.clipboard_name,
                 clipboard.text_file_id,
-                clipboard.passwd_hash.hash,
+                passwd_hash,
                 clipboard.expiry
             ],
         )

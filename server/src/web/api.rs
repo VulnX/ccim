@@ -53,7 +53,7 @@ async fn create_clipboard(
 ) -> Result<StatusCode> {
     let mut files: HashMap<String, String> = HashMap::new(); // Maps the actual file name to its uuid name in the filesystem
     let mut text_file_id: Option<String> = None;
-    let mut clipboard_info: Option<models::ClipboardOptions> = None;
+    let mut clipboard_info: Option<models::ClipboardInfo> = None;
 
     // Parse multipart payload and store text/file(s)
     while let Some(mut field) = multipart.next_field().await.unwrap() {
@@ -91,31 +91,39 @@ async fn create_clipboard(
                             "Failed to parse json field `ClipboardOptionsRequest`".into(),
                         )));
                     };
-                    let hash = util::decrypt(info.passwd_hash).await?;
-                    let Ok(hash) = serde_json::from_slice::<models::PasswdHash>(&hash) else {
-                        util::cleanup_files(text_file_id, files.values().cloned().collect()).await;
-                        return Err(Error::BadRequest(Some(
-                            "Failed to parse json field `PasswdHash`".into(),
-                        )));
-                    };
-                    // Ensure that the hash is latest (to avoid hash replay attack)
-                    if 5 * 60 < Utc::now().timestamp() as u64 - hash.timestamp {
-                        util::cleanup_files(text_file_id, files.values().cloned().collect()).await;
-                        return Err(Error::BadRequest(Some(
-                            "Timeout! timestamp difference cannot exceed 5 minutes".into(),
-                        )));
+                    let mut passwd_hash = None;
+                    if let Some(encrypted_passwd_hash) = info.passwd_hash {
+                        let passwd_hash_json = util::decrypt(encrypted_passwd_hash).await?;
+                        let Ok(hash) = serde_json::from_slice::<models::PasswdHash>(&passwd_hash_json) else {
+                            util::cleanup_files(text_file_id, files.values().cloned().collect())
+                                .await;
+                            return Err(Error::BadRequest(Some(
+                                "Failed to parse json field `PasswdHash`".into(),
+                            )));
+                        };
+                        // Ensure that the hash is latest (to avoid hash replay attack)
+                        if 5 * 60 < Utc::now().timestamp() as u64 - hash.timestamp {
+                            util::cleanup_files(text_file_id, files.values().cloned().collect())
+                                .await;
+                            return Err(Error::BadRequest(Some(
+                                "Timeout! timestamp difference cannot exceed 5 minutes".into(),
+                            )));
+                        }
+                        // Sanity check : Ensure expiry is no more than 24 hours
+                        if 24 * 60 * 60 < info.expire_after {
+                            util::cleanup_files(text_file_id, files.values().cloned().collect())
+                                .await;
+                            return Err(Error::BadRequest(Some(
+                                "Clipboard lifetime cannot exceed 24 hours".into(),
+                            )));
+                        }
+                        passwd_hash = Some(hash)
                     }
-                    // Sanity check : Ensure expiry is no more than 24 hours
-                    if 24 * 60 * 60 < info.expire_after {
-                        util::cleanup_files(text_file_id, files.values().cloned().collect()).await;
-                        return Err(Error::BadRequest(Some(
-                            "Clipboard lifetime cannot exceed 24 hours".into(),
-                        )));
-                    }
-                    clipboard_info = Some(models::ClipboardOptions {
+
+                    clipboard_info = Some(models::ClipboardInfo {
                         name: info.name,
                         expire_after: info.expire_after,
-                        passwd_hash: hash,
+                        passwd_hash,
                     });
                 }
             }

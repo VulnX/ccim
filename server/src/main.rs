@@ -47,6 +47,12 @@ mod api_test {
         // Retain the key pair files to avoid unnecessary slowdown between tests
         let _ = tokio::fs::remove_dir_all(util::get_files_dir()).await;
         let _ = tokio::fs::remove_file(util::get_data_dir().join("database.db3")).await;
+        // If either of the keys do not already exist (fresh setup), regenerate them
+        let private_key_does_not_exist = !util::get_data_dir().join("private.pem").exists();
+        let public_key_does_not_exist = !util::get_data_dir().join("public.pem").exists();
+        if private_key_does_not_exist || public_key_does_not_exist {
+            util::generate_key_pair().await.unwrap();
+        }
         let app = app();
         let server = TestServer::new(app).unwrap();
         server
@@ -89,6 +95,27 @@ mod api_test {
 
     #[tokio::test]
     #[serial]
+    async fn test_unencrypted_upload() {
+        let server = init_test().await;
+
+        let info = json!({
+            "name": "some clipboard name",
+            "expire_after": 300,
+        });
+        let info = Part::text(info.to_string());
+        let text = Part::text("some clipboard text here");
+        let file = Part::bytes("file contents here".as_bytes().to_vec()).file_name("example.txt");
+        let form = MultipartForm::new()
+            .add_part("text", text)
+            .add_part("file", file)
+            .add_part("info", info);
+
+        let response = server.post("/api/clipboards").multipart(form).await;
+        response.assert_status(StatusCode::CREATED);
+    }
+
+    #[tokio::test]
+    #[serial]
     async fn test_duplicate_upload() {
         let server = init_test().await;
 
@@ -106,26 +133,13 @@ mod api_test {
         let text = Part::text("some clipboard text here");
         let file = Part::bytes("file contents here".as_bytes().to_vec()).file_name("example.txt");
         let form = MultipartForm::new()
-            .add_part("text", text)
-            .add_part("file", file)
-            .add_part("info", info);
+            .add_part("text", text.clone())
+            .add_part("file", file.clone())
+            .add_part("info", info.clone());
 
         let response = server.post("/api/clipboards").multipart(form).await;
         response.assert_status(StatusCode::CREATED);
 
-        let passwd_hash = json!({
-            "hash": vec![0],
-            "timestamp": Utc::now().timestamp() as u64,
-        })
-        .to_string();
-        let info = json!({
-            "name": "some clipboard name",
-            "expire_after": 300,
-            "passwd_hash": util::encrypt(passwd_hash.into()).await,
-        });
-        let info = Part::text(info.to_string());
-        let text = Part::text("some clipboard text here");
-        let file = Part::bytes("file contents here".as_bytes().to_vec()).file_name("example.txt");
         let form = MultipartForm::new()
             .add_part("text", text)
             .add_part("file", file)
