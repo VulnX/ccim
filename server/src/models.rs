@@ -47,14 +47,14 @@ pub struct DeleteClipboardResponse {
 pub struct GetClipboardsResponse {
     pub name: String,
     pub text: Option<String>,
-    pub files: Vec<String>,
+    pub files: HashMap<String, String>,
     pub is_encrypted: bool,
 }
 
 #[derive(Debug, Serialize)]
 pub struct FullClipboardData {
     pub name: String,
-    pub text: Option<String>,
+    pub text_file_id: Option<String>,
     pub files: HashMap<String, String>,
     pub is_encrypted: bool,
 }
@@ -63,7 +63,7 @@ pub struct FullClipboardData {
 struct ClipboardsEntry {
     clipboard_name: String,
     text_file_id: Option<String>,
-    passwd_hash: Vec<u8>,
+    passwd_hash: Option<Vec<u8>>,
     _expiry: u64,
 }
 
@@ -202,8 +202,8 @@ CREATE TABLE IF NOT EXISTS clipboard_files
 
             let mut clipboard = FullClipboardData {
                 name: clipboard_row.clipboard_name,
-                text: clipboard_row.text_file_id,
-                is_encrypted: clipboard_row.passwd_hash.is_empty(),
+                text_file_id: clipboard_row.text_file_id,
+                is_encrypted: clipboard_row.passwd_hash.is_some(),
                 files: HashMap::new(),
             };
 

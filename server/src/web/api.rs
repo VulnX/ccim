@@ -163,22 +163,21 @@ async fn create_clipboard(
 async fn list_clipboards(
     State(db_controller): State<models::DatabaseController>,
 ) -> Result<(StatusCode, Json<Vec<models::GetClipboardsResponse>>)> {
-    let mut clipboards = db_controller.get_clipboards().await?;
+    let clipboards = db_controller.get_clipboards().await?;
     let mut res: Vec<models::GetClipboardsResponse> = Vec::new();
-    for clipboard in &mut clipboards {
-        if let Some(text_file_id) = &clipboard.text {
-            let text = tokio::fs::read_to_string(util::get_files_dir().join(text_file_id))
+    for clipboard in &clipboards {
+        let mut text= None;
+        if let Some(text_file_id) = &clipboard.text_file_id {
+            let text_content = tokio::fs::read_to_string(util::get_files_dir().join(text_file_id))
                 .await
                 .map_err(|e| Error::Unhandled(e.into()))?;
-            clipboard.text = Some(text);
+            text = Some(text_content);
         }
-
-        let files: Vec<String> = clipboard.files.keys().cloned().collect();
 
         res.push(models::GetClipboardsResponse {
             name: clipboard.name.clone(),
-            text: clipboard.text.clone(),
-            files,
+            text,
+            files: clipboard.files.clone(),
             is_encrypted: clipboard.is_encrypted,
         });
     }

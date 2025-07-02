@@ -43,7 +43,7 @@ mod api_test {
     use super::*;
 
     async fn init_test() -> TestServer {
-        // Remove only the stores files and database
+        // Remove only the stored files and database
         // Retain the key pair files to avoid unnecessary slowdown between tests
         let _ = tokio::fs::remove_dir_all(util::get_files_dir()).await;
         let _ = tokio::fs::remove_file(util::get_data_dir().join("database.db3")).await;
