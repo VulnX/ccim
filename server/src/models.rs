@@ -1,6 +1,6 @@
 use crate::{
     error::{Error, Result},
-    util,
+    filter, util,
 };
 use axum::extract::FromRef;
 use rusqlite::{params, Connection, OptionalExtension};
@@ -165,6 +165,8 @@ CREATE TABLE IF NOT EXISTS clipboard_files
     }
 
     pub async fn get_clipboards(&self) -> Result<Vec<FullClipboardData>> {
+        filter::clear_expired_clipboards(self.db.clone()).await?;
+
         let conn = self.db.lock().await;
 
         let mut stmt = conn
@@ -183,8 +185,6 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             .map_err(|e| Error::Unhandled(e.into()))?;
 
         let mut clipboards: Vec<FullClipboardData> = Vec::new();
-
-        // TODO : filter those which have expired
 
         for clipboard_row in clipboard_rows.filter_map(|row| row.ok()) {
             let mut stmt = conn

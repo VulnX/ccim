@@ -94,7 +94,9 @@ async fn create_clipboard(
                     let mut passwd_hash = None;
                     if let Some(encrypted_passwd_hash) = info.passwd_hash {
                         let passwd_hash_json = util::decrypt(encrypted_passwd_hash).await?;
-                        let Ok(hash) = serde_json::from_slice::<models::PasswdHash>(&passwd_hash_json) else {
+                        let Ok(hash) =
+                            serde_json::from_slice::<models::PasswdHash>(&passwd_hash_json)
+                        else {
                             util::cleanup_files(text_file_id, files.values().cloned().collect())
                                 .await;
                             return Err(Error::BadRequest(Some(
@@ -166,7 +168,7 @@ async fn list_clipboards(
     let clipboards = db_controller.get_clipboards().await?;
     let mut res: Vec<models::GetClipboardsResponse> = Vec::new();
     for clipboard in &clipboards {
-        let mut text= None;
+        let mut text = None;
         if let Some(text_file_id) = &clipboard.text_file_id {
             let text_content = tokio::fs::read_to_string(util::get_files_dir().join(text_file_id))
                 .await

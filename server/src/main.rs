@@ -3,6 +3,7 @@ use axum::Router;
 use tracing::{info, Level};
 
 mod error;
+mod filter;
 mod models;
 mod util;
 mod web;
@@ -31,6 +32,8 @@ fn app() -> Router {
 
 #[cfg(test)]
 mod api_test {
+    use std::{thread::sleep, time::Duration};
+
     use axum::http::StatusCode;
     use axum_test::{
         multipart::{MultipartForm, Part},
@@ -227,5 +230,36 @@ mod api_test {
         response.assert_status(StatusCode::NO_CONTENT);
         let response = server.delete("/api/clipboard/clip3").await;
         response.assert_status(StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_expired_clipboards() {
+        let server = init_test().await;
+
+        let passwd_hash = json!({
+            "hash": vec![0],
+            "timestamp": Utc::now().timestamp() as u64,
+        })
+        .to_string();
+        let info = json!({
+            "name": "some clipboard name",
+            "expire_after": 0,
+            "passwd_hash": util::encrypt(passwd_hash.into()).await,
+        });
+        let info = Part::text(info.to_string());
+        let text = Part::text("some clipboard text here");
+        let file = Part::bytes("file contents here".as_bytes().to_vec()).file_name("example.txt");
+        let form = MultipartForm::new()
+            .add_part("text", text)
+            .add_part("file", file)
+            .add_part("info", info);
+        let response = server.post("/api/clipboards").multipart(form).await;
+        response.assert_status(StatusCode::CREATED);
+
+        sleep(Duration::from_secs(1));
+
+        let response = server.get("/api/clipboards").await;
+        response.assert_status(StatusCode::NO_CONTENT);
     }
 }
