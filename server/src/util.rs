@@ -27,10 +27,8 @@ fn ensure_dir_exists(path: &PathBuf) {
     }
 }
 
-pub async fn cleanup_files(text: Option<String>, files: Vec<String>) {
-    if let Some(id) = text {
-        delete_file(id).await;
-    }
+pub async fn cleanup_files(text: String, files: Vec<String>) {
+    delete_file(text).await;
     for id in files {
         delete_file(id).await;
     }

@@ -7,7 +7,10 @@ use axum::{
     Json, Router,
 };
 use chrono::Utc;
-use tokio::{fs::File, io::AsyncWriteExt};
+use tokio::{
+    fs::{File, OpenOptions},
+    io::AsyncWriteExt,
+};
 use tower_http::limit::RequestBodyLimitLayer;
 
 use crate::{
@@ -52,23 +55,22 @@ async fn create_clipboard(
     mut multipart: Multipart,
 ) -> Result<StatusCode> {
     let mut files: HashMap<String, String> = HashMap::new(); // Maps the actual file name to its uuid name in the filesystem
-    let mut text_file_id: Option<String> = None;
+    let text_file_id: String = uuid::Uuid::new_v4().to_string();
+    File::create(util::get_files_dir().join(&text_file_id))
+        .await
+        .unwrap();
     let mut clipboard_info: Option<models::ClipboardInfo> = None;
 
     // Parse multipart payload and store text/file(s)
     while let Some(mut field) = multipart.next_field().await.unwrap() {
         match field.name().unwrap() {
             "text" => {
-                if text_file_id.is_none() {
-                    let id = uuid::Uuid::new_v4().to_string();
-                    let path = util::get_files_dir().join(&id);
-                    let mut file = File::create(&path).await.unwrap();
-                    while let Some(chunk) = field.chunk().await.unwrap() {
-                        file.write_all(&chunk).await.unwrap();
-                    }
-                    file.flush().await.unwrap();
-                    text_file_id = Some(id);
+                let path = util::get_files_dir().join(&text_file_id);
+                let mut file = OpenOptions::new().write(true).open(path).await.unwrap();
+                while let Some(chunk) = field.chunk().await.unwrap() {
+                    file.write_all(&chunk).await.unwrap();
                 }
+                file.flush().await.unwrap();
             }
             "file" => {
                 let id = uuid::Uuid::new_v4().to_string();
@@ -168,13 +170,9 @@ async fn list_clipboards(
     let clipboards = db_controller.get_clipboards().await?;
     let mut res: Vec<models::GetClipboardsResponse> = Vec::new();
     for clipboard in &clipboards {
-        let mut text = None;
-        if let Some(text_file_id) = &clipboard.text_file_id {
-            let text_content = tokio::fs::read_to_string(util::get_files_dir().join(text_file_id))
-                .await
-                .map_err(|e| Error::Unhandled(e.into()))?;
-            text = Some(text_content);
-        }
+        let text = tokio::fs::read_to_string(util::get_files_dir().join(&clipboard.text_file_id))
+            .await
+            .map_err(|e| Error::Unhandled(e.into()))?;
 
         res.push(models::GetClipboardsResponse {
             name: clipboard.name.clone(),

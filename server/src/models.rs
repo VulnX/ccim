@@ -31,7 +31,7 @@ pub struct PasswdHash {
 #[derive(Debug)]
 pub struct CreateClipboardPayload {
     pub clipboard_name: String,
-    pub text_file_id: Option<String>,
+    pub text_file_id: String,
     pub files: HashMap<String, String>,
     pub passwd_hash: Option<PasswdHash>,
     pub expiry: u64,
@@ -39,14 +39,14 @@ pub struct CreateClipboardPayload {
 
 #[derive(Debug)]
 pub struct DeleteClipboardResponse {
-    pub text_file_id: Option<String>,
+    pub text_file_id: String,
     pub file_ids: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
 pub struct GetClipboardsResponse {
     pub name: String,
-    pub text: Option<String>,
+    pub text: String,
     pub files: HashMap<String, String>,
     pub is_encrypted: bool,
 }
@@ -54,7 +54,7 @@ pub struct GetClipboardsResponse {
 #[derive(Debug, Serialize)]
 pub struct FullClipboardData {
     pub name: String,
-    pub text_file_id: Option<String>,
+    pub text_file_id: String,
     pub files: HashMap<String, String>,
     pub is_encrypted: bool,
 }
@@ -62,7 +62,7 @@ pub struct FullClipboardData {
 #[derive(Debug)]
 struct ClipboardsEntry {
     clipboard_name: String,
-    text_file_id: Option<String>,
+    text_file_id: String,
     passwd_hash: Option<Vec<u8>>,
     _expiry: u64,
 }
@@ -93,7 +93,7 @@ impl DatabaseController {
 CREATE TABLE IF NOT EXISTS clipboards
 (
   clipboard_name TEXT NOT NULL,
-  text_file_id TEXT,
+  text_file_id TEXT NOT NULL,
   passwd_hash BLOB,
   expiry INT NOT NULL,
   PRIMARY KEY (clipboard_name),
@@ -236,13 +236,14 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         let mut stmt = conn
             .prepare("SELECT text_file_id FROM clipboards WHERE clipboard_name = ?")
             .map_err(|e| Error::Unhandled(e.into()))?;
-        let mut clipboards_row = stmt
-            .query_map([&clipboard_name], |row| {
-                let text_file_id: String = row.get(0)?;
-                Ok(text_file_id)
-            })
+        let text_file_id = stmt
+            .query_row([&clipboard_name], |row| row.get(0))
             .map_err(|e| Error::Unhandled(e.into()))?;
-        let text_file_id = clipboards_row.next().and_then(|row| row.ok());
+
+        // let mut clipboards_row = stmt
+        // .query_map([&clipboard_name], |row| row.get::<_, String>(0))
+        // .map_err(|e| Error::Unhandled(e.into()))?;
+        // let text_file_id = clipboards_row.next().and_then(|row| row.ok()).unwrap();
 
         // Fetch all file_ids associated with the clipboard.
         let mut stmt = conn
