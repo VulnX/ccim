@@ -209,7 +209,11 @@ async fn update_clipboard(
         // Update text content in filesystem
         if let Some(text_content) = req.new_text {
             let file_path = util::get_files_dir().join(text_file_id);
-            let mut file = OpenOptions::new().write(true).open(file_path).await.unwrap();
+            let mut file = OpenOptions::new()
+                .write(true)
+                .open(file_path)
+                .await
+                .unwrap();
             file.write_all(text_content.as_bytes()).await.unwrap();
             file.flush().await.unwrap();
         }

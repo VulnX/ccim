@@ -14,6 +14,7 @@ pub enum Error {
     ClipboardDoesNotExist,
     BadRequest(Option<String>),
     Unauthorized(Option<String>),
+    Database(rusqlite::Error),
 }
 
 impl IntoResponse for Error {
@@ -52,6 +53,15 @@ impl IntoResponse for Error {
                     "message": msg.unwrap_or("UNAUTHORIZED! THIS INCIDENT WILL BE REPORTED".into())
                 })),
             ),
+            Error::Database(msg) => {
+                error!("DATABASE ERROR : {msg}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "message": "A database error has occured. Please try again"
+                    })),
+                )
+            }
         }
         .into_response()
     }

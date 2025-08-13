@@ -156,10 +156,10 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                         // should not be any collision.
                         Error::NameAlreadyExistsInDB
                     }
-                    _ => Error::Unhandled(e.into()),
+                    _ => Error::Database(e),
                 }
             } else {
-                Error::Unhandled(e.into())
+                Error::Database(e)
             }
         })?;
         for (name, id) in clipboard.files {
@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                 .map_err(|e| {
                     // Only constraint is on `id` field which is realistically
                     // never going to collide
-                    Error::Unhandled(e.into())
+                    Error::Database(e)
                 })?;
         }
         Ok(())
@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
 
         let mut stmt = conn
             .prepare("SELECT clipboard_name, text_file_id, passwd_hash, expiry FROM clipboards")
-            .map_err(|e| Error::Unhandled(e.into()))?;
+            .map_err(Error::Database)?;
 
         let clipboard_rows = stmt
             .query_map([], |row| {
@@ -194,14 +194,14 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                     _expiry: row.get(3)?,
                 })
             })
-            .map_err(|e| Error::Unhandled(e.into()))?;
+            .map_err(Error::Database)?;
 
         let mut clipboards: Vec<FullClipboardData> = Vec::new();
 
         for clipboard_row in clipboard_rows.filter_map(|row| row.ok()) {
             let mut stmt = conn
                 .prepare("SELECT file_id, file_name FROM clipboard_files WHERE clipboard_name = ?")
-                .map_err(|e| Error::Unhandled(e.into()))?;
+                .map_err(Error::Database)?;
 
             let files_rows = stmt
                 .query_map([&clipboard_row.clipboard_name], |row| {
@@ -210,7 +210,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                         file_name: row.get(1)?,
                     })
                 })
-                .map_err(|e| Error::Unhandled(e.into()))?;
+                .map_err(Error::Database)?;
 
             let mut clipboard = FullClipboardData {
                 name: clipboard_row.clipboard_name,
@@ -247,26 +247,26 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         // Fetch the text_file_id for the specified clipboard.
         let mut stmt = conn
             .prepare("SELECT text_file_id FROM clipboards WHERE clipboard_name = ?")
-            .map_err(|e| Error::Unhandled(e.into()))?;
+            .map_err(Error::Database)?;
         let text_file_id = stmt
             .query_row([&clipboard_name], |row| row.get(0))
-            .map_err(|e| Error::Unhandled(e.into()))?;
+            .map_err(Error::Database)?;
 
         // let mut clipboards_row = stmt
         // .query_map([&clipboard_name], |row| row.get::<_, String>(0))
-        // .map_err(|e| Error::Unhandled(e.into()))?;
+        // .map_err(Error::Database)?;
         // let text_file_id = clipboards_row.next().and_then(|row| row.ok()).unwrap();
 
         // Fetch all file_ids associated with the clipboard.
         let mut stmt = conn
             .prepare("SELECT file_id FROM clipboard_files WHERE clipboard_name = ?")
-            .map_err(|e| Error::Unhandled(e.into()))?;
+            .map_err(Error::Database)?;
         let file_ids: Vec<String> = stmt
             .query_map([&clipboard_name], |row| {
                 let file_id: String = row.get(0)?;
                 Ok(file_id)
             })
-            .map_err(|e| Error::Unhandled(e.into()))?
+            .map_err(Error::Database)?
             .filter_map(|row| row.ok()) // Filter out any errors during row processing.
             .collect();
 
@@ -275,14 +275,14 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             "DELETE FROM clipboard_files WHERE clipboard_name = ?",
             [&clipboard_name],
         )
-        .map_err(|e| Error::Unhandled(e.into()))?;
+        .map_err(Error::Database)?;
 
         // Delete the clipboard entry itself from the clipboards table.
         conn.execute(
             "DELETE FROM clipboards WHERE clipboard_name = ?",
             [&clipboard_name],
         )
-        .map_err(|e| Error::Unhandled(e.into()))?;
+        .map_err(Error::Database)?;
 
         // Return a successful response containing the text_file_id and associated file_ids.
         Ok(DeleteClipboardResponse {
@@ -292,18 +292,18 @@ CREATE TABLE IF NOT EXISTS clipboard_files
     }
 
     /// Updates selective fields for the associated clipboard.
-    /// 
+    ///
     /// ## Updatable fields
     /// * `new_text` - Text field of the clipboard
     /// * `new_passwd` - Password field of the clipboard
-    /// 
+    ///
     /// ## Arguments
     /// * `clipboard_name` - The name of the clipboard to be updated.
     /// * `req` - An `UpdateClipboardInfoRequest` type request specifying which fields to update.
-    /// 
+    ///
     /// ## Returns
     /// * A `Result` containing the `UpdateClipboardInfoResponse` on success, or an `Error` on failure.
-    /// 
+    ///
     /// ## Notes
     /// * This only affects the database, not the actual content in filesystem.
     /// * For example while specifying a `new_text` this function only returns
@@ -321,11 +321,11 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             // Check if this clipboard is encrypted
             let mut stmt = conn
                 .prepare("SELECT passwd_hash FROM clipboards WHERE clipboard_name = ?")
-                .map_err(|e| Error::Unhandled(e.into()))?;
+                .map_err(Error::Database)?;
 
             stored_passwd = stmt
                 .query_row([&clipboard_name], |row| row.get::<_, Option<Vec<u8>>>(0))
-                .map_err(|e| Error::Unhandled(e.into()))?;
+                .map_err(Error::Database)?;
         }
 
         // If clipboard is encrypted, verify the provided password
@@ -344,10 +344,10 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         if req.new_text.is_some() {
             let mut stmt = conn
                 .prepare("SELECT text_file_id FROM clipboards WHERE clipboard_name = ?")
-                .map_err(|e| Error::Unhandled(e.into()))?;
+                .map_err(Error::Database)?;
             let text_file_id = stmt
                 .query_row([&clipboard_name], |row| row.get::<_, String>(0))
-                .map_err(|e| Error::Unhandled(e.into()))?;
+                .map_err(Error::Database)?;
             res.text_file_id = Some(text_file_id);
         }
 
@@ -357,9 +357,9 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             let new_passwd = util::get_passwd(new_passwd_bytes).await?;
             let mut stmt = conn
                 .prepare("UPDATE clipboards SET passwd_hash = ? WHERE clipboard_name = ?")
-                .map_err(|e| Error::Unhandled(e.into()))?;
+                .map_err(Error::Database)?;
             stmt.execute(params![new_passwd.hash, &clipboard_name])
-                .map_err(|e| Error::Unhandled(e.into()))?;
+                .map_err(Error::Database)?;
         }
 
         // TODO : How about updating the name as well
@@ -373,11 +373,11 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         let conn = self.db.lock().await;
         let mut stmt = conn
             .prepare("SELECT 1 FROM clipboards WHERE clipboard_name = ?")
-            .map_err(|e| Error::Unhandled(e.into()))?;
+            .map_err(Error::Database)?;
         let exists = stmt
             .query_row([&clipboard_name], |_| Ok(()))
             .optional()
-            .map_err(|e| Error::Unhandled(e.into()))?;
+            .map_err(Error::Database)?;
         if exists.is_none() {
             return Err(Error::ClipboardDoesNotExist);
         }
@@ -389,13 +389,13 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         let conn = self.db.lock().await;
         let mut stmt = conn
             .prepare("SELECT text_file_id FROM clipboards WHERE clipboard_name = ?")
-            .map_err(|e| Error::Unhandled(e.into()))?;
+            .map_err(Error::Database)?;
         let id = stmt
             .query_row([clipboard_name], |row| {
                 let id: Option<String> = row.get(0)?;
                 Ok(id)
             })
-            .map_err(|e| Error::Unhandled(e.into()))?;
+            .map_err(Error::Database)?;
         Ok(id)
     }
 }
