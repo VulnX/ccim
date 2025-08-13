@@ -224,11 +224,11 @@ mod api_test {
         let response = server.post("/api/clipboards").multipart(form).await;
         response.assert_status(StatusCode::CREATED);
 
-        let response = server.delete("/api/clipboard/clip1").await;
+        let response = server.delete("/api/clipboards/clip1").await;
         response.assert_status(StatusCode::NO_CONTENT);
-        let response = server.delete("/api/clipboard/clip2").await;
+        let response = server.delete("/api/clipboards/clip2").await;
         response.assert_status(StatusCode::NO_CONTENT);
-        let response = server.delete("/api/clipboard/clip3").await;
+        let response = server.delete("/api/clipboards/clip3").await;
         response.assert_status(StatusCode::NOT_FOUND);
     }
 
@@ -261,5 +261,43 @@ mod api_test {
 
         let response = server.get("/api/clipboards").await;
         response.assert_status(StatusCode::NO_CONTENT);
+    }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_update_clipboard() {
+        let server = init_test().await;
+
+        let passwd_hash = json!({
+            "hash": vec![0],
+            "timestamp": Utc::now().timestamp() as u64,
+        })
+        .to_string();
+        let info = json!({
+            "name": "clip1",
+            "expire_after": 300,
+            "passwd_hash": util::encrypt(passwd_hash.into()).await,
+        });
+        let info = Part::text(info.to_string());
+        let text = Part::text("AAAA");
+        let form = MultipartForm::new()
+            .add_part("info", info)
+            .add_part("text", text);
+        let response = server.post("/api/clipboards").multipart(form).await;
+        response.assert_status(StatusCode::CREATED);
+
+        let passwd_hash = json!({
+            "hash": vec![0],
+            "timestamp": Utc::now().timestamp() as u64,
+        })
+        .to_string();
+        let info = json!({
+            "passwd": util::encrypt(passwd_hash.into()).await,
+            "new_text": "BBBB",
+        });
+        let info = Part::text(info.to_string());
+        let form = MultipartForm::new().add_part("info", info);
+        let response = server.patch("/api/clipboards/clip1").multipart(form).await;
+        response.assert_status(StatusCode::OK);
     }
 }

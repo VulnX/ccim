@@ -51,7 +51,7 @@ pub struct GetClipboardsResponse {
     pub is_encrypted: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct FullClipboardData {
     pub name: String,
     pub text_file_id: String,
@@ -71,6 +71,18 @@ struct ClipboardsEntry {
 struct ClipboardFilesEntry {
     file_id: String,
     file_name: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateClipboardInfoRequest {
+    pub new_text: Option<String>,
+    pub new_passwd: Option<Vec<u8>>,
+    pub passwd: Option<Vec<u8>>,
+}
+
+#[derive(Debug)]
+pub struct UpdateClipboardInfoResponse {
+    pub text_file_id: Option<String>,
 }
 
 #[derive(Debug, Clone, FromRef)]
@@ -277,6 +289,84 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             text_file_id,
             file_ids,
         })
+    }
+
+    /// Updates selective fields for the associated clipboard.
+    /// 
+    /// ## Updatable fields
+    /// * `new_text` - Text field of the clipboard
+    /// * `new_passwd` - Password field of the clipboard
+    /// 
+    /// ## Arguments
+    /// * `clipboard_name` - The name of the clipboard to be updated.
+    /// * `req` - An `UpdateClipboardInfoRequest` type request specifying which fields to update.
+    /// 
+    /// ## Returns
+    /// * A `Result` containing the `UpdateClipboardInfoResponse` on success, or an `Error` on failure.
+    /// 
+    /// ## Notes
+    /// * This only affects the database, not the actual content in filesystem.
+    /// * For example while specifying a `new_text` this function only returns
+    ///   the `text_file_id` for the filesystem path of the stored text content.
+    ///   The caller must ensure to update it in the filesystem themself.
+    pub async fn update_clipboard_info(
+        &self,
+        clipboard_name: String,
+        req: &UpdateClipboardInfoRequest,
+    ) -> Result<UpdateClipboardInfoResponse> {
+        let mut res = UpdateClipboardInfoResponse { text_file_id: None };
+        let stored_passwd: Option<Vec<u8>>;
+        {
+            let conn = self.db.lock().await;
+            // Check if this clipboard is encrypted
+            let mut stmt = conn
+                .prepare("SELECT passwd_hash FROM clipboards WHERE clipboard_name = ?")
+                .map_err(|e| Error::Unhandled(e.into()))?;
+
+            stored_passwd = stmt
+                .query_row([&clipboard_name], |row| row.get::<_, Option<Vec<u8>>>(0))
+                .map_err(|e| Error::Unhandled(e.into()))?;
+        }
+
+        // If clipboard is encrypted, verify the provided password
+        if let Some(stored_hash) = stored_passwd {
+            let given_passwd_bytes = req.passwd.clone().ok_or(Error::BadRequest(Some(
+                "Password is needed to update encrypted clipboard".into(),
+            )))?;
+            let given_passwd = util::get_passwd(given_passwd_bytes).await?;
+            if given_passwd.hash != stored_hash {
+                return Err(Error::Unauthorized(Some("Invalid password!".into())));
+            }
+        }
+
+        let conn = self.db.lock().await;
+        // Return text_file_id to caller to update text content in filesystem
+        if req.new_text.is_some() {
+            let mut stmt = conn
+                .prepare("SELECT text_file_id FROM clipboards WHERE clipboard_name = ?")
+                .map_err(|e| Error::Unhandled(e.into()))?;
+            let text_file_id = stmt
+                .query_row([&clipboard_name], |row| row.get::<_, String>(0))
+                .map_err(|e| Error::Unhandled(e.into()))?;
+            res.text_file_id = Some(text_file_id);
+        }
+
+        // Update password
+        // TODO : How will one remove the password from an encrypted clipboard
+        if let Some(new_passwd_bytes) = req.new_passwd.clone() {
+            let new_passwd = util::get_passwd(new_passwd_bytes).await?;
+            let mut stmt = conn
+                .prepare("UPDATE clipboards SET passwd_hash = ? WHERE clipboard_name = ?")
+                .map_err(|e| Error::Unhandled(e.into()))?;
+            stmt.execute(params![new_passwd.hash, &clipboard_name])
+                .map_err(|e| Error::Unhandled(e.into()))?;
+        }
+
+        // TODO : How about updating the name as well
+        //        Not possible in current implementation
+        //        because `clipboard_name` field is used as
+        //        a foreign key for `clipboard_files` table
+        Ok(res)
     }
 
     async fn ensure_clipboard_exists(&self, clipboard_name: &String) -> Result<()> {

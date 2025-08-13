@@ -13,6 +13,7 @@ pub enum Error {
     NameAlreadyExistsInDB,
     ClipboardDoesNotExist,
     BadRequest(Option<String>),
+    Unauthorized(Option<String>),
 }
 
 impl IntoResponse for Error {
@@ -43,6 +44,12 @@ impl IntoResponse for Error {
                 StatusCode::BAD_REQUEST,
                 Json(json!({
                     "message": msg.unwrap_or("Invalid request. Please refer to API docs".into())
+                })),
+            ),
+            Error::Unauthorized(msg) => (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "message": msg.unwrap_or("UNAUTHORIZED! THIS INCIDENT WILL BE REPORTED".into())
                 })),
             ),
         }

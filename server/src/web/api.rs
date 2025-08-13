@@ -29,7 +29,7 @@ pub fn routes() -> Router {
         .route("/publickey", get(public_key))
         .route("/clipboards", post(create_clipboard).get(list_clipboards))
         .route(
-            "/clipboard/{name}",
+            "/clipboards/{name}",
             patch(update_clipboard).delete(delete_clipboard),
         )
         .with_state(db_controller)
@@ -85,7 +85,7 @@ async fn create_clipboard(
             }
             "info" => {
                 if clipboard_info.is_none() {
-                    let info = field.bytes().await.unwrap().to_vec();
+                    let info = field.bytes().await.unwrap();
                     let Ok(info) = serde_json::from_slice::<models::ClipboardOptionsRequest>(&info)
                     else {
                         util::cleanup_files(text_file_id, files.values().cloned().collect()).await;
@@ -94,25 +94,18 @@ async fn create_clipboard(
                         )));
                     };
                     let mut passwd_hash = None;
-                    if let Some(encrypted_passwd_hash) = info.passwd_hash {
-                        let passwd_hash_json = util::decrypt(encrypted_passwd_hash).await?;
-                        let Ok(hash) =
-                            serde_json::from_slice::<models::PasswdHash>(&passwd_hash_json)
-                        else {
-                            util::cleanup_files(text_file_id, files.values().cloned().collect())
+                    if let Some(passwd_bytes) = info.passwd_hash {
+                        let hash = match util::get_passwd(passwd_bytes).await {
+                            Ok(hash) => hash,
+                            Err(e) => {
+                                util::cleanup_files(
+                                    text_file_id,
+                                    files.values().cloned().collect(),
+                                )
                                 .await;
-                            return Err(Error::BadRequest(Some(
-                                "Failed to parse json field `PasswdHash`".into(),
-                            )));
+                                return Err(e);
+                            }
                         };
-                        // Ensure that the hash is latest (to avoid hash replay attack)
-                        if 5 * 60 < Utc::now().timestamp() as u64 - hash.timestamp {
-                            util::cleanup_files(text_file_id, files.values().cloned().collect())
-                                .await;
-                            return Err(Error::BadRequest(Some(
-                                "Timeout! timestamp difference cannot exceed 5 minutes".into(),
-                            )));
-                        }
                         // Sanity check : Ensure expiry is no more than 24 hours
                         if 24 * 60 * 60 < info.expire_after {
                             util::cleanup_files(text_file_id, files.values().cloned().collect())
@@ -189,8 +182,39 @@ async fn list_clipboards(
     }
 }
 
-async fn update_clipboard() -> Result<()> {
-    todo!()
+async fn update_clipboard(
+    State(db_controller): State<models::DatabaseController>,
+    Path(name): Path<String>,
+    mut multipart: Multipart,
+) -> Result<StatusCode> {
+    let mut req = None;
+
+    while let Some(field) = multipart.next_field().await.unwrap() {
+        if field.name().unwrap() == "info" {
+            let bytes = field.bytes().await.unwrap();
+            req = Some(
+                serde_json::from_slice::<models::UpdateClipboardInfoRequest>(&bytes).map_err(
+                    |_| Error::BadRequest(Some("Field `info` is poorly formatted".into())),
+                )?,
+            );
+        }
+    }
+
+    let req =
+        req.ok_or_else(|| Error::BadRequest(Some("Field `info` not present in request".into())))?;
+
+    let res = db_controller.update_clipboard_info(name, &req).await?;
+
+    if let Some(text_file_id) = res.text_file_id {
+        // Update text content in filesystem
+        if let Some(text_content) = req.new_text {
+            let file_path = util::get_files_dir().join(text_file_id);
+            let mut file = OpenOptions::new().write(true).open(file_path).await.unwrap();
+            file.write_all(text_content.as_bytes()).await.unwrap();
+            file.flush().await.unwrap();
+        }
+    }
+    Ok(StatusCode::OK)
 }
 
 async fn delete_clipboard(
