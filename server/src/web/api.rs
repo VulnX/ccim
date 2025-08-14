@@ -1,8 +1,13 @@
 use std::collections::HashMap;
 
 use axum::{
+    body::Body,
     extract::{DefaultBodyLimit, Multipart, Path, State},
-    http::StatusCode,
+    http::{
+        header::{CONTENT_LENGTH, CONTENT_TYPE},
+        StatusCode,
+    },
+    response::Response,
     routing::{get, patch, post},
     Json, Router,
 };
@@ -32,6 +37,7 @@ pub fn routes() -> Router {
             "/clipboards/{name}",
             patch(update_clipboard).delete(delete_clipboard),
         )
+        .route("/clipboards/file/{id}", get(download_file))
         .with_state(db_controller)
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(
@@ -228,4 +234,27 @@ async fn delete_clipboard(
     let to_be_deleted = db_controller.delete_clipboard(name).await?;
     util::cleanup_files(to_be_deleted.text_file_id, to_be_deleted.file_ids).await;
     Ok(StatusCode::NO_CONTENT)
+}
+
+async fn download_file(
+    State(_db_controller): State<models::DatabaseController>,
+    Path(id): Path<String>,
+) -> Result<Response> {
+    // TODO : Add password hash checks (do we need this)
+    let file_path = util::get_files_dir().join(id);
+    if !file_path.exists() {
+        return Ok(Response::builder()
+            .status(StatusCode::NOT_FOUND)
+            .body(Body::empty())
+            .unwrap());
+    }
+    let file = tokio::fs::File::open(&file_path).await.unwrap();
+    let file_size = tokio::fs::metadata(&file_path).await.unwrap().len();
+    let reader_stream = tokio_util::io::ReaderStream::new(file);
+    let body = Body::from_stream(reader_stream);
+    Ok(Response::builder()
+        .header(CONTENT_TYPE, "application/octet-stream")
+        .header(CONTENT_LENGTH, file_size)
+        .body(body)
+        .unwrap())
 }

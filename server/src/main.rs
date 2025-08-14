@@ -300,4 +300,33 @@ mod api_test {
         let response = server.patch("/api/clipboards/clip1").multipart(form).await;
         response.assert_status(StatusCode::OK);
     }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_download() {
+        let server = init_test().await;
+
+        let info = json!({
+            "name": "clip1",
+            "expire_after": 300,
+        });
+        let info = Part::text(info.to_string());
+        let text = Part::text("AAAA");
+        let file = Part::bytes("file contents here".as_bytes().to_vec()).file_name("example.txt");
+        let form = MultipartForm::new()
+            .add_part("info", info)
+            .add_part("text", text)
+            .add_part("file", file);
+        let response = server.post("/api/clipboards").multipart(form).await;
+        response.assert_status(StatusCode::CREATED);
+
+        let response = server.get("/api/clipboards").await;
+        let response =
+            serde_json::from_str::<Vec<models::GetClipboardsResponse>>(&response.text()).unwrap();
+        let (_name, file_id) = response[0].files.iter().next().unwrap();
+        let response = server
+            .get(format!("/api/clipboards/file/{file_id}").as_str())
+            .await;
+        response.assert_status(StatusCode::OK);
+    }
 }

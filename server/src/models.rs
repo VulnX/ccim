@@ -43,7 +43,7 @@ pub struct DeleteClipboardResponse {
     pub file_ids: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GetClipboardsResponse {
     pub name: String,
     pub text: String,
