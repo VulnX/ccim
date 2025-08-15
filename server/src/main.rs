@@ -329,4 +329,52 @@ mod api_test {
             .await;
         response.assert_status(StatusCode::OK);
     }
+
+    #[tokio::test]
+    #[serial]
+    async fn test_update_files() {
+        let server = init_test().await;
+
+        let info = json!({
+            "name": "clip1",
+            "expire_after": 300,
+        });
+        let info = Part::text(info.to_string());
+        let text = Part::text("AAAA");
+        let file1 = Part::bytes("file contents here".as_bytes().to_vec()).file_name("example1.txt");
+        let file2 = Part::bytes("more contents here".as_bytes().to_vec()).file_name("example2.txt");
+        let form = MultipartForm::new()
+            .add_part("info", info)
+            .add_part("text", text)
+            .add_part("file", file1)
+            .add_part("file", file2);
+        let response = server.post("/api/clipboards").multipart(form).await;
+        response.assert_status(StatusCode::CREATED);
+
+        let response = server.get("/api/clipboards").await;
+        let response =
+            serde_json::from_str::<Vec<models::GetClipboardsResponse>>(&response.text()).unwrap();
+        let file1_id = response[0]
+            .files
+            .iter()
+            .find(|(name, _id)| *name == "example1.txt")
+            .map(|(_name, id)| id)
+            .unwrap();
+        let files = vec![file1_id];
+        let files = serde_json::to_string(&files).unwrap();
+        let files = Part::text(files);
+        let file3 =
+            Part::bytes("more more contents here".as_bytes().to_vec()).file_name("example3.txt");
+        let form = MultipartForm::new()
+            .add_part("delete", files)
+            .add_part("file", file3);
+        let response = server.patch("/api/clipboards/clip1").multipart(form).await;
+        response.assert_status(StatusCode::OK);
+
+        let response = server.get("/api/clipboards").await;
+        let response =
+            serde_json::from_str::<Vec<models::GetClipboardsResponse>>(&response.text()).unwrap();
+        assert!(!response[0].files.contains_key("example1.txt"));
+        assert!(response[0].files.contains_key("example3.txt"));
+    }
 }

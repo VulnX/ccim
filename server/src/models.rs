@@ -3,9 +3,9 @@ use crate::{
     filter, util,
 };
 use axum::extract::FromRef;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, params_from_iter, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, iter::repeat_n, sync::Arc};
 use tokio::sync::Mutex;
 
 #[derive(Debug, Deserialize)]
@@ -81,7 +81,7 @@ pub struct UpdateClipboardInfoRequest {
 }
 
 #[derive(Debug)]
-pub struct UpdateClipboardInfoResponse {
+pub struct UpdateClipboardResponse {
     pub text_file_id: Option<String>,
 }
 
@@ -291,30 +291,75 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         })
     }
 
-    /// Updates selective fields for the associated clipboard.
-    ///
-    /// ## Updatable fields
-    /// * `new_text` - Text field of the clipboard
-    /// * `new_passwd` - Password field of the clipboard
+    /// Updates details and files regarding a specific clipboard.
     ///
     /// ## Arguments
     /// * `clipboard_name` - The name of the clipboard to be updated.
-    /// * `req` - An `UpdateClipboardInfoRequest` type request specifying which fields to update.
+    /// * `info_payload` - An `UpdateClipboardInfoRequest` type request specifying which fields to update.
+    /// * `delete_payload` - A `Vec<String>` type request specifying which fields to remove.
+    /// * `added_file_map` - A `HashMap<String, String>` type request specifying (filename, fileid) for newly added files.
     ///
     /// ## Returns
-    /// * A `Result` containing the `UpdateClipboardInfoResponse` on success, or an `Error` on failure.
+    /// * A `Result` containing the `UpdateClipboardResponse` on success, or an `Error` on failure.
     ///
     /// ## Notes
     /// * This only affects the database, not the actual content in filesystem.
     /// * For example while specifying a `new_text` this function only returns
     ///   the `text_file_id` for the filesystem path of the stored text content.
     ///   The caller must ensure to update it in the filesystem themself.
-    pub async fn update_clipboard_info(
+    pub async fn update_clipboard(
         &self,
         clipboard_name: String,
-        req: &UpdateClipboardInfoRequest,
-    ) -> Result<UpdateClipboardInfoResponse> {
-        let mut res = UpdateClipboardInfoResponse { text_file_id: None };
+        info_payload: &Option<UpdateClipboardInfoRequest>,
+        delete_payload: &Vec<String>,
+        added_file_map: &HashMap<String, String>,
+    ) -> Result<UpdateClipboardResponse> {
+        let mut res = UpdateClipboardResponse { text_file_id: None };
+        let conn = self.db.lock().await;
+        // If non empty list, delete files
+        if !delete_payload.is_empty() {
+            let query = repeat_n("?", delete_payload.len())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let query = format!("DELETE FROM clipboard_files WHERE file_id = {query}");
+            let mut stmt = conn.prepare(&query).map_err(Error::Database)?;
+            stmt.execute(params_from_iter(delete_payload))
+                .map_err(Error::Database)?;
+        }
+        // Append new file details
+        for (file_name, file_id) in added_file_map {
+            let mut stmt = conn
+                    .prepare("INSERT INTO clipboard_files (file_id, file_name, clipboard_name) VALUES (?1, ?2, ?3)")
+                    .map_err(Error::Database)?;
+            stmt.execute([file_id, file_name, &clipboard_name])
+                .map_err(Error::Database)?;
+        }
+        drop(conn); // Drop mutex guard here to allow further nested calls to acquire it
+        // Update info at last
+        if let Some(info) = info_payload {
+            res.text_file_id = self.update_clipboard_info(&clipboard_name, info).await?;
+        }
+        Ok(res)
+    }
+
+    /// Updates selective fields for the associated clipboard.
+    ///
+    /// ## Updatable details fields
+    /// * `new_text` - Text field of the clipboard
+    /// * `new_passwd` - Password field of the clipboard
+    ///
+    /// ## Arguments
+    /// * `clipboard_name` - The name of the clipboard to be updated.
+    /// * `info` - An `UpdateClipboardInfoRequest` type request specifying which fields to update.
+    ///
+    /// ## Returns
+    /// * A `Result` containing the `Option<String>` of text file id on success, or an `Error` on failure.
+    async fn update_clipboard_info(
+        &self,
+        clipboard_name: &String,
+        info: &UpdateClipboardInfoRequest,
+    ) -> Result<Option<String>> {
+        let mut res = None;
         let stored_passwd: Option<Vec<u8>>;
         {
             let conn = self.db.lock().await;
@@ -330,7 +375,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
 
         // If clipboard is encrypted, verify the provided password
         if let Some(stored_hash) = stored_passwd {
-            let given_passwd_bytes = req.passwd.clone().ok_or(Error::BadRequest(Some(
+            let given_passwd_bytes = info.passwd.clone().ok_or(Error::BadRequest(Some(
                 "Password is needed to update encrypted clipboard".into(),
             )))?;
             let given_passwd = util::get_passwd(given_passwd_bytes).await?;
@@ -341,19 +386,19 @@ CREATE TABLE IF NOT EXISTS clipboard_files
 
         let conn = self.db.lock().await;
         // Return text_file_id to caller to update text content in filesystem
-        if req.new_text.is_some() {
+        if info.new_text.is_some() {
             let mut stmt = conn
                 .prepare("SELECT text_file_id FROM clipboards WHERE clipboard_name = ?")
                 .map_err(Error::Database)?;
             let text_file_id = stmt
                 .query_row([&clipboard_name], |row| row.get::<_, String>(0))
                 .map_err(Error::Database)?;
-            res.text_file_id = Some(text_file_id);
+            res = Some(text_file_id);
         }
 
         // Update password
         // TODO : How will one remove the password from an encrypted clipboard
-        if let Some(new_passwd_bytes) = req.new_passwd.clone() {
+        if let Some(new_passwd_bytes) = info.new_passwd.clone() {
             let new_passwd = util::get_passwd(new_passwd_bytes).await?;
             let mut stmt = conn
                 .prepare("UPDATE clipboards SET passwd_hash = ? WHERE clipboard_name = ?")

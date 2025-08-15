@@ -193,37 +193,71 @@ async fn update_clipboard(
     Path(name): Path<String>,
     mut multipart: Multipart,
 ) -> Result<StatusCode> {
-    let mut req = None;
-
-    while let Some(field) = multipart.next_field().await.unwrap() {
-        if field.name().unwrap() == "info" {
-            let bytes = field.bytes().await.unwrap();
-            req = Some(
-                serde_json::from_slice::<models::UpdateClipboardInfoRequest>(&bytes).map_err(
-                    |_| Error::BadRequest(Some("Field `info` is poorly formatted".into())),
-                )?,
-            );
+    let mut info_payload = None;
+    let mut delete_payload = Vec::new();
+    let mut added_file_map = HashMap::new();
+    while let Some(mut field) = multipart.next_field().await.unwrap() {
+        match field.name() {
+            Some("info") => {
+                let bytes = field.bytes().await.unwrap();
+                info_payload = Some(
+                    serde_json::from_slice::<models::UpdateClipboardInfoRequest>(&bytes).map_err(
+                        |_| Error::BadRequest(Some("Field `info` is poorly formatted".into())),
+                    )?,
+                );
+            }
+            Some("delete") => {
+                let bytes = field.bytes().await.unwrap();
+                delete_payload = serde_json::from_slice::<Vec<String>>(&bytes).map_err(|_| {
+                    Error::BadRequest(Some("Field `files` is poorly formatted".into()))
+                })?;
+            }
+            Some("file") => {
+                let id = uuid::Uuid::new_v4().to_string();
+                let path = util::get_files_dir().join(&id);
+                let mut file = File::create(&path).await.unwrap();
+                while let Some(chunk) = field.chunk().await.unwrap() {
+                    file.write_all(&chunk).await.unwrap();
+                }
+                file.flush().await.unwrap();
+                let file_name = field.file_name().unwrap().to_string();
+                added_file_map.insert(file_name, id);
+            }
+            _ => {}
         }
     }
 
-    let req =
-        req.ok_or_else(|| Error::BadRequest(Some("Field `info` not present in request".into())))?;
-
-    let res = db_controller.update_clipboard_info(name, &req).await?;
+    let res = match db_controller
+        .update_clipboard(name, &info_payload, &delete_payload, &added_file_map)
+        .await
+    {
+        Ok(res) => Ok(res),
+        Err(e) => {
+            for (_file_name, file_id) in added_file_map {
+                util::delete_file(file_id).await;
+            }
+            Err(e)
+        }
+    }?;
 
     if let Some(text_file_id) = res.text_file_id {
         // Update text content in filesystem
-        if let Some(text_content) = req.new_text {
-            let file_path = util::get_files_dir().join(text_file_id);
-            let mut file = OpenOptions::new()
-                .write(true)
-                .open(file_path)
-                .await
-                .unwrap();
-            file.write_all(text_content.as_bytes()).await.unwrap();
-            file.flush().await.unwrap();
-        }
+        let text_content = info_payload.unwrap().new_text.unwrap();
+        let file_path = util::get_files_dir().join(text_file_id);
+        let mut file = OpenOptions::new()
+            .write(true)
+            .open(file_path)
+            .await
+            .unwrap();
+        file.write_all(text_content.as_bytes()).await.unwrap();
+        file.flush().await.unwrap();
     }
+
+    // Delete files from filesystem
+    for file_id in delete_payload {
+        util::delete_file(file_id).await;
+    }
+
     Ok(StatusCode::OK)
 }
 

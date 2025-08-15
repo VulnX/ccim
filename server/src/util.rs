@@ -38,8 +38,8 @@ pub async fn cleanup_files(text: String, files: Vec<String>) {
     }
 }
 
-async fn delete_file(name: String) {
-    tokio::fs::remove_file(get_files_dir().join(name))
+pub async fn delete_file(id: String) {
+    tokio::fs::remove_file(get_files_dir().join(id))
         .await
         .unwrap();
 }
