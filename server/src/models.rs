@@ -9,7 +9,7 @@ use std::{collections::HashMap, iter::repeat_n, sync::Arc};
 use tokio::sync::Mutex;
 
 #[derive(Debug, Deserialize)]
-pub struct ClipboardOptionsRequest {
+pub struct CreateClipboardRequest {
     pub name: String,
     pub expire_after: u64,
     pub passwd_hash: Option<Vec<u8>>,
@@ -376,11 +376,11 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         // If clipboard is encrypted, verify the provided password
         if let Some(stored_hash) = stored_passwd {
             let given_passwd_bytes = info.passwd.clone().ok_or(Error::BadRequest(Some(
-                "Password is needed to update encrypted clipboard".into(),
+                "Password is needed to update encrypted clipboard",
             )))?;
             let given_passwd = util::get_passwd(given_passwd_bytes).await?;
             if given_passwd.hash != stored_hash {
-                return Err(Error::Unauthorized(Some("Invalid password!".into())));
+                return Err(Error::Unauthorized(Some("Invalid password!")));
             }
         }
 

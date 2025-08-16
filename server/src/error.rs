@@ -12,8 +12,8 @@ pub enum Error {
     Unhandled(anyhow::Error),
     NameAlreadyExistsInDB,
     ClipboardDoesNotExist,
-    BadRequest(Option<String>),
-    Unauthorized(Option<String>),
+    BadRequest(Option<&'static str>),
+    Unauthorized(Option<&'static str>),
     Database(rusqlite::Error),
 }
 
