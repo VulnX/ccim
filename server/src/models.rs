@@ -8,63 +8,13 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, iter::repeat_n, sync::Arc};
 use tokio::sync::Mutex;
 
-#[derive(Debug, Deserialize)]
-pub struct CreateClipboardRequest {
-    pub name: String,
-    pub expire_after: u64,
-    pub passwd_hash: Option<Vec<u8>>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ClipboardInfo {
-    pub name: String,
-    pub expire_after: u64,
-    pub passwd_hash: Option<PasswdHash>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct PasswdHash {
-    pub hash: Vec<u8>,
-    pub timestamp: u64,
-}
-
-#[derive(Debug)]
-pub struct CreateClipboardPayload {
-    pub clipboard_name: String,
-    pub text_file_id: String,
-    pub files: HashMap<String, String>,
-    pub passwd_hash: Option<PasswdHash>,
-    pub expiry: u64,
-}
-
-#[derive(Debug)]
-pub struct DeleteClipboardResponse {
-    pub text_file_id: String,
-    pub file_ids: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GetClipboardsResponse {
-    pub name: String,
-    pub text: String,
-    pub files: HashMap<String, String>,
-    pub is_encrypted: bool,
-}
-
-#[derive(Debug)]
-pub struct FullClipboardData {
-    pub name: String,
-    pub text_file_id: String,
-    pub files: HashMap<String, String>,
-    pub is_encrypted: bool,
-}
+// ----------------------- Database Related Definitions -----------------------
 
 #[derive(Debug)]
 struct ClipboardsEntry {
     clipboard_name: String,
     text_file_id: String,
     passwd_hash: Option<Vec<u8>>,
-    _expiry: u64,
 }
 
 #[derive(Debug)]
@@ -73,17 +23,76 @@ struct ClipboardFilesEntry {
     file_name: String,
 }
 
+// ----------------------- Request/Payload Definitions ------------------------
+
 #[derive(Debug, Deserialize)]
-pub struct UpdateClipboardInfoRequest {
+pub struct CreateClipboardRequest {
+    pub name: String,
+    pub expire_after: u64,
+    pub passwd_hash: Option<Vec<u8>>,
+}
+
+#[derive(Debug)]
+pub struct CreateClipboardPayload {
+    pub clipboard_name: String,
+    pub text_file_id: String,
+    pub file_map: HashMap<String, String>,
+    pub passwd: Option<Passwd>,
+    pub expiry: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateClipboardInfoPayload {
     pub new_text: Option<String>,
     pub new_passwd: Option<Vec<u8>>,
     pub passwd: Option<Vec<u8>>,
+}
+
+// --------------------------- Response Definitions ---------------------------
+
+#[derive(Debug)]
+pub struct FullClipboardData {
+    pub name: String,
+    pub text_file_id: String,
+    pub file_map: HashMap<String, String>,
+    pub is_encrypted: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GetClipboardsResponse {
+    pub name: String,
+    pub text: String,
+    pub file_map: HashMap<String, String>,
+    pub is_encrypted: bool,
 }
 
 #[derive(Debug)]
 pub struct UpdateClipboardResponse {
     pub text_file_id: Option<String>,
 }
+
+#[derive(Debug)]
+pub struct DeleteClipboardResponse {
+    pub text_file_id: String,
+    pub file_ids: Vec<String>,
+}
+
+// ----------------------------------- misc -----------------------------------
+
+#[derive(Debug, Deserialize)]
+pub struct ClipboardInfo {
+    pub name: String,
+    pub expire_after: u64,
+    pub passwd: Option<Passwd>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Passwd {
+    pub hash: Vec<u8>,
+    pub timestamp: u64,
+}
+
+// ----------------------------------------------------------------------------
 
 #[derive(Debug, Clone, FromRef)]
 pub struct DatabaseController {
@@ -134,7 +143,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
 
     pub async fn add_clipboard(&self, clipboard: CreateClipboardPayload) -> Result<()> {
         let conn = self.db.lock().await;
-        let passwd_hash = clipboard.passwd_hash.map(|passwd_hash| passwd_hash.hash);
+        let passwd_hash = clipboard.passwd.map(|passwd| passwd.hash);
         conn.execute(
             "INSERT INTO clipboards (clipboard_name, text_file_id, passwd_hash, expiry) VALUES (?1, ?2, ?3, ?4)",
             params![
@@ -162,7 +171,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                 Error::Database(e)
             }
         })?;
-        for (name, id) in clipboard.files {
+        for (name, id) in clipboard.file_map {
             conn.execute(
                     "INSERT INTO clipboard_files (file_id, file_name, clipboard_name) VALUES (?1, ?2, ?3)",
                     params![id, name, clipboard.clipboard_name,],
@@ -182,7 +191,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         let conn = self.db.lock().await;
 
         let mut stmt = conn
-            .prepare("SELECT clipboard_name, text_file_id, passwd_hash, expiry FROM clipboards")
+            .prepare("SELECT clipboard_name, text_file_id, passwd_hash FROM clipboards")
             .map_err(Error::Database)?;
 
         let clipboard_rows = stmt
@@ -191,7 +200,6 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                     clipboard_name: row.get(0)?,
                     text_file_id: row.get(1)?,
                     passwd_hash: row.get(2)?,
-                    _expiry: row.get(3)?,
                 })
             })
             .map_err(Error::Database)?;
@@ -216,11 +224,11 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                 name: clipboard_row.clipboard_name,
                 text_file_id: clipboard_row.text_file_id,
                 is_encrypted: clipboard_row.passwd_hash.is_some(),
-                files: HashMap::new(),
+                file_map: HashMap::new(),
             };
 
             for file in files_rows.filter_map(|row| row.ok()) {
-                clipboard.files.insert(file.file_name, file.file_id);
+                clipboard.file_map.insert(file.file_name, file.file_id);
             }
 
             clipboards.push(clipboard);
@@ -309,13 +317,14 @@ CREATE TABLE IF NOT EXISTS clipboard_files
     ///   The caller must ensure to update it in the filesystem themself.
     pub async fn update_clipboard(
         &self,
-        clipboard_name: String,
-        info_payload: &Option<UpdateClipboardInfoRequest>,
+        clipboard_name: &String,
+        info_payload: &Option<UpdateClipboardInfoPayload>,
         delete_payload: &Vec<String>,
         added_file_map: &HashMap<String, String>,
     ) -> Result<UpdateClipboardResponse> {
         let mut res = UpdateClipboardResponse { text_file_id: None };
         let conn = self.db.lock().await;
+
         // If non empty list, delete files
         if !delete_payload.is_empty() {
             let query = repeat_n("?", delete_payload.len())
@@ -326,18 +335,25 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             stmt.execute(params_from_iter(delete_payload))
                 .map_err(Error::Database)?;
         }
+
         // Append new file details
         for (file_name, file_id) in added_file_map {
             let mut stmt = conn
                     .prepare("INSERT INTO clipboard_files (file_id, file_name, clipboard_name) VALUES (?1, ?2, ?3)")
                     .map_err(Error::Database)?;
-            stmt.execute([file_id, file_name, &clipboard_name])
+            stmt.execute([file_id, file_name, clipboard_name])
                 .map_err(Error::Database)?;
         }
-        drop(conn); // Drop mutex guard here to allow further nested calls to acquire it
-        // Update info at last
+
+        drop(conn); // Drop mutex guard here to allow further nested calls to
+                    // acquire it
+                    // Update info at last
+                    // This is deliberately done at the end because updating `info` might
+                    // lead to changing `name` which will break other INSERT/DELETE queries
+                    // PS : Updating `name` is NOT supported as of now. This only exists as
+                    // a sort of reminder for the future, preventing potentials bugs
         if let Some(info) = info_payload {
-            res.text_file_id = self.update_clipboard_info(&clipboard_name, info).await?;
+            res.text_file_id = self.update_clipboard_info(clipboard_name, info).await?;
         }
         Ok(res)
     }
@@ -357,9 +373,11 @@ CREATE TABLE IF NOT EXISTS clipboard_files
     async fn update_clipboard_info(
         &self,
         clipboard_name: &String,
-        info: &UpdateClipboardInfoRequest,
+        info: &UpdateClipboardInfoPayload,
     ) -> Result<Option<String>> {
         let mut res = None;
+
+        // Fetch stored password
         let stored_passwd: Option<Vec<u8>>;
         {
             let conn = self.db.lock().await;
@@ -371,6 +389,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             stored_passwd = stmt
                 .query_row([&clipboard_name], |row| row.get::<_, Option<Vec<u8>>>(0))
                 .map_err(Error::Database)?;
+            // `conn` gets dropped here
         }
 
         // If clipboard is encrypted, verify the provided password
@@ -385,7 +404,8 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         }
 
         let conn = self.db.lock().await;
-        // Return text_file_id to caller to update text content in filesystem
+
+        // Return `text_file_id` to caller to update text content in filesystem
         if info.new_text.is_some() {
             let mut stmt = conn
                 .prepare("SELECT text_file_id FROM clipboards WHERE clipboard_name = ?")
@@ -407,10 +427,9 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                 .map_err(Error::Database)?;
         }
 
-        // TODO : How about updating the name as well
-        //        Not possible in current implementation
-        //        because `clipboard_name` field is used as
-        //        a foreign key for `clipboard_files` table
+        // TODO : How about updating the name as well. Not possible in current
+        // implementation because `clipboard_name` field is used as a foreign
+        // key for `clipboard_files` table
         Ok(res)
     }
 
@@ -427,20 +446,5 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             return Err(Error::ClipboardDoesNotExist);
         }
         Ok(())
-    }
-
-    pub async fn get_file_id(&self, clipboard_name: &String) -> Result<Option<String>> {
-        self.ensure_clipboard_exists(clipboard_name).await?;
-        let conn = self.db.lock().await;
-        let mut stmt = conn
-            .prepare("SELECT text_file_id FROM clipboards WHERE clipboard_name = ?")
-            .map_err(Error::Database)?;
-        let id = stmt
-            .query_row([clipboard_name], |row| {
-                let id: Option<String> = row.get(0)?;
-                Ok(id)
-            })
-            .map_err(Error::Database)?;
-        Ok(id)
     }
 }

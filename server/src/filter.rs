@@ -16,7 +16,7 @@ pub async fn clear_expired_clipboards(db: Arc<Mutex<Connection>>) -> Result<()> 
     let current_time = Utc::now().timestamp() as u64;
     let mut stmt = conn
         .prepare("SELECT clipboard_name, expiry FROM clipboards")
-        .map_err(|e| Error::Unhandled(e.into()))?;
+        .map_err(Error::Database)?;
     let clipboards = stmt
         .query_map([], |row| {
             Ok(ClipboardExpiry {
@@ -24,10 +24,10 @@ pub async fn clear_expired_clipboards(db: Arc<Mutex<Connection>>) -> Result<()> 
                 expiry: row.get(1)?,
             })
         })
-        .map_err(|e| Error::Unhandled(e.into()))?;
+        .map_err(Error::Database)?;
     let mut to_delete = Vec::new();
     for clipboard in clipboards.filter_map(|row| row.ok()) {
-        if clipboard.expiry < current_time {
+        if clipboard.expiry <= current_time {
             to_delete.push(clipboard.clipboard_name);
         }
     }
@@ -36,12 +36,12 @@ pub async fn clear_expired_clipboards(db: Arc<Mutex<Connection>>) -> Result<()> 
             "DELETE FROM clipboard_files WHERE clipboard_name = ?",
             [&clipboard_name],
         )
-        .map_err(|e| Error::Unhandled(e.into()))?;
+        .map_err(Error::Database)?;
         conn.execute(
             "DELETE FROM clipboards WHERE clipboard_name = ?",
             [&clipboard_name],
         )
-        .map_err(|e| Error::Unhandled(e.into()))?;
+        .map_err(Error::Database)?;
     }
     Ok(())
 }

@@ -103,9 +103,9 @@ async fn create_clipboard(
                         )));
                     };
                     // Obtain an optional `passwd_hash` from the request
-                    let mut passwd_hash = None;
+                    let mut passwd = None;
                     if let Some(passwd_bytes) = info.passwd_hash {
-                        let hash = match util::get_passwd(passwd_bytes).await {
+                        let _passwd = match util::get_passwd(passwd_bytes).await {
                             Ok(hash) => hash,
                             Err(e) => {
                                 util::cleanup_files(
@@ -116,7 +116,7 @@ async fn create_clipboard(
                                 return Err(e);
                             }
                         };
-                        passwd_hash = Some(hash);
+                        passwd = Some(_passwd);
                     }
                     // Sanity check : Ensure expiry is no more than 24 hours
                     if 24 * 60 * 60 < info.expire_after {
@@ -130,7 +130,7 @@ async fn create_clipboard(
                     clipboard_info = Some(models::ClipboardInfo {
                         name: info.name,
                         expire_after: info.expire_after,
-                        passwd_hash,
+                        passwd,
                     });
                 }
             }
@@ -146,12 +146,12 @@ async fn create_clipboard(
     // Create clipboard payload
     let expiry = Utc::now().timestamp() as u64 + clipboard_info.expire_after;
     let clipboard_name = clipboard_info.name;
-    let passwd_hash = clipboard_info.passwd_hash;
+    let passwd_hash = clipboard_info.passwd;
     let clipboard = models::CreateClipboardPayload {
         clipboard_name,
         text_file_id: text_file_id.clone(),
-        files: file_map.clone(),
-        passwd_hash,
+        file_map: file_map.clone(),
+        passwd: passwd_hash,
         expiry,
     };
 
@@ -181,7 +181,7 @@ async fn list_clipboards(
         res.push(models::GetClipboardsResponse {
             name: clipboard.name.clone(),
             text,
-            files: clipboard.files.clone(),
+            file_map: clipboard.file_map.clone(),
             is_encrypted: clipboard.is_encrypted,
         });
     }
@@ -206,16 +206,14 @@ async fn update_clipboard(
             Some("info") => {
                 let bytes = field.bytes().await.unwrap();
                 new_info = Some(
-                    serde_json::from_slice::<models::UpdateClipboardInfoRequest>(&bytes).map_err(
-                        |_| Error::BadRequest(Some("Part `info` is poorly formatted")),
-                    )?,
+                    serde_json::from_slice::<models::UpdateClipboardInfoPayload>(&bytes)
+                        .map_err(|_| Error::BadRequest(Some("Part `info` is poorly formatted")))?,
                 );
             }
             Some("delete") => {
                 let bytes = field.bytes().await.unwrap();
-                deleted_files = serde_json::from_slice::<Vec<String>>(&bytes).map_err(|_| {
-                    Error::BadRequest(Some("Part `files` is poorly formatted"))
-                })?;
+                deleted_files = serde_json::from_slice::<Vec<String>>(&bytes)
+                    .map_err(|_| Error::BadRequest(Some("Part `files` is poorly formatted")))?;
             }
             Some("file") => {
                 let id = uuid::Uuid::new_v4().to_string();
@@ -233,7 +231,7 @@ async fn update_clipboard(
     }
 
     let res = match db_controller
-        .update_clipboard(name, &new_info, &deleted_files, &added_file_map)
+        .update_clipboard(&name, &new_info, &deleted_files, &added_file_map)
         .await
     {
         Ok(res) => Ok(res),

@@ -90,14 +90,14 @@ pub async fn encrypt(data: Vec<u8>) -> Vec<u8> {
 }
 
 /// Obtain `PasswdHash` from a bytes type object.
-/// 
+///
 /// Performs the decryption part as well
 ///
 /// Performs sanity checks, ensuring:
 ///     - Timestamp difference is no more than 5 minutes
-pub async fn get_passwd(bytes: Vec<u8>) -> Result<models::PasswdHash> {
+pub async fn get_passwd(bytes: Vec<u8>) -> Result<models::Passwd> {
     let passwd_json = decrypt(bytes).await?;
-    let passwd = serde_json::from_slice::<models::PasswdHash>(&passwd_json)
+    let passwd = serde_json::from_slice::<models::Passwd>(&passwd_json)
         .map_err(|_| Error::BadRequest(Some("Failed to parse json field `PasswdHash`")))?;
     if 5 * 60 < Utc::now().timestamp() as u64 - passwd.timestamp {
         return Err(Error::BadRequest(Some(

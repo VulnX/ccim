@@ -44,13 +44,13 @@ impl IntoResponse for Error {
             Error::BadRequest(msg) => (
                 StatusCode::BAD_REQUEST,
                 Json(json!({
-                    "message": msg.unwrap_or("Invalid request. Please refer to API docs".into())
+                    "message": msg.unwrap_or("Invalid request. Please refer to API docs")
                 })),
             ),
             Error::Unauthorized(msg) => (
                 StatusCode::UNAUTHORIZED,
                 Json(json!({
-                    "message": msg.unwrap_or("UNAUTHORIZED! THIS INCIDENT WILL BE REPORTED".into())
+                    "message": msg.unwrap_or("UNAUTHORIZED! THIS INCIDENT WILL BE REPORTED")
                 })),
             ),
             Error::Database(msg) => {

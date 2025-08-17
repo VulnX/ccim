@@ -32,8 +32,6 @@ fn app() -> Router {
 
 #[cfg(test)]
 mod api_test {
-    use std::{thread::sleep, time::Duration};
-
     use axum::http::StatusCode;
     use axum_test::{
         multipart::{MultipartForm, Part},
@@ -257,8 +255,6 @@ mod api_test {
         let response = server.post("/api/clipboards").multipart(form).await;
         response.assert_status(StatusCode::CREATED);
 
-        sleep(Duration::from_secs(1));
-
         let response = server.get("/api/clipboards").await;
         response.assert_status(StatusCode::NO_CONTENT);
     }
@@ -323,7 +319,7 @@ mod api_test {
         let response = server.get("/api/clipboards").await;
         let response =
             serde_json::from_str::<Vec<models::GetClipboardsResponse>>(&response.text()).unwrap();
-        let (_name, file_id) = response[0].files.iter().next().unwrap();
+        let (_name, file_id) = response[0].file_map.iter().next().unwrap();
         let response = server
             .get(format!("/api/clipboards/file/{file_id}").as_str())
             .await;
@@ -355,7 +351,7 @@ mod api_test {
         let response =
             serde_json::from_str::<Vec<models::GetClipboardsResponse>>(&response.text()).unwrap();
         let file1_id = response[0]
-            .files
+            .file_map
             .iter()
             .find(|(name, _id)| *name == "example1.txt")
             .map(|(_name, id)| id)
@@ -374,7 +370,7 @@ mod api_test {
         let response = server.get("/api/clipboards").await;
         let response =
             serde_json::from_str::<Vec<models::GetClipboardsResponse>>(&response.text()).unwrap();
-        assert!(!response[0].files.contains_key("example1.txt"));
-        assert!(response[0].files.contains_key("example3.txt"));
+        assert!(!response[0].file_map.contains_key("example1.txt"));
+        assert!(response[0].file_map.contains_key("example3.txt"));
     }
 }
