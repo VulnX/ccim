@@ -141,6 +141,13 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         }
     }
 
+    /// Add a new clipboard to the database
+    /// 
+    /// ## Arguments
+    /// * `clipboard` - A `CreateClipboardPayload` type request containg new clipboard data
+    /// 
+    /// ## Returns
+    /// * A `Result` containing nothing on success, or an `Error` on failure.
     pub async fn add_clipboard(&self, clipboard: CreateClipboardPayload) -> Result<()> {
         let conn = self.db.lock().await;
         let passwd_hash = clipboard.passwd.map(|passwd| passwd.hash);
@@ -185,6 +192,18 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         Ok(())
     }
 
+    /// Get all existing clipboards details.
+    /// 
+    /// ## Arguments
+    /// * None
+    /// 
+    /// ## Returns
+    /// * A `Result` containing a `Vec` of `FullClipboardData` on success, or an `Error` on failure.
+    /// 
+    /// ## Notes
+    /// * Invoking this function automatically calls the `clear_expired_clipboards`
+    ///   filter which removes expired clipboards details from the database as
+    ///   well as from the filesystem
     pub async fn get_clipboards(&self) -> Result<Vec<FullClipboardData>> {
         filter::clear_expired_clipboards(self.db.clone()).await?;
 

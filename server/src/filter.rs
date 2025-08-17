@@ -14,6 +14,8 @@ struct ClipboardExpiry {
     expiry: u64,
 }
 
+/// Filters and deletes expired clipboards and their associated files from the
+/// database as well as from the filesystem
 pub async fn clear_expired_clipboards(db: Arc<Mutex<Connection>>) -> Result<()> {
     let cleanup_jobs = {
         let conn = db.lock().await;

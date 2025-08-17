@@ -13,24 +13,33 @@ use crate::{
     models,
 };
 
+/// Returns the path to the apps's `data` directory, creating it if it doesn't exist.
 pub fn get_data_dir() -> PathBuf {
     let path = PathBuf::new().join("data");
     ensure_dir_exists(&path);
     path
 }
 
+/// Returns the path to the `files` directory within the `data` directory, creating it if needed.
 pub fn get_files_dir() -> PathBuf {
     let path = get_data_dir().join("files");
     ensure_dir_exists(&path);
     path
 }
 
+/// Ensures that the given directory path exists, creating it (and any missing parents) if necessary.
 fn ensure_dir_exists(path: &PathBuf) {
     if !path.exists() {
         std::fs::create_dir_all(path).unwrap();
     }
 }
 
+
+/// Deletes `text` and `files` associated with a clipboard from the filesystem
+/// 
+/// ## Arguments
+/// * `text` - A `String` representing file id storing the clipboard text
+/// * `files` - A `Vec` of `String` representing all file ids associated with the clipboard
 pub async fn cleanup_files(text: String, files: Vec<String>) {
     delete_file(text).await;
     for id in files {
@@ -38,12 +47,19 @@ pub async fn cleanup_files(text: String, files: Vec<String>) {
     }
 }
 
+/// Deletes a file from the app's `files` directory based on the provided file name
 pub async fn delete_file(id: String) {
     tokio::fs::remove_file(get_files_dir().join(id))
         .await
         .unwrap();
 }
 
+/// Generates a new 2048-bit RSA key pair and writes them to disk.
+///
+/// ## Notes
+/// * Serializes both keys to PEM format using PKCS#1 encoding with LF line endings.
+/// * Writes the private key to `private.pem` and the public key to `public.pem`
+///   in the app's `data` directory.
 pub async fn generate_key_pair() -> Result<()> {
     info!("Generating new key pair...");
     let private_key =
@@ -66,6 +82,7 @@ pub async fn generate_key_pair() -> Result<()> {
     Ok(())
 }
 
+/// Decrypts a `Vec<u8>` data via RSA, from the current state of `private.pem`
 async fn decrypt(data: Vec<u8>) -> Result<Vec<u8>> {
     let private_key_pem = tokio::fs::read_to_string(get_data_dir().join("private.pem"))
         .await
@@ -79,6 +96,7 @@ async fn decrypt(data: Vec<u8>) -> Result<Vec<u8>> {
     Ok(decrypted_data)
 }
 
+/// Encrypts a `Vec<u8>` data via RSA, from the current state of `private.pem`
 #[allow(dead_code)] // False positive ... used in tests
 pub async fn encrypt(data: Vec<u8>) -> Vec<u8> {
     let public_key_pem = tokio::fs::read_to_string(PathBuf::new().join("data").join("public.pem"))

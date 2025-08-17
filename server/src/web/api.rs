@@ -27,6 +27,7 @@ const FILES_MAX_SIZE: usize = 100;
 const TEXT_MAX_SIZE: usize = 1;
 const ADDITIONAL_BUFFER_SIZE: usize = 1;
 
+/// Returns the API router with all defined HTTP routes.
 pub fn routes() -> Router {
     let db_controller = models::DatabaseController::new();
     Router::new()
@@ -45,10 +46,12 @@ pub fn routes() -> Router {
         ))
 }
 
+/// Health check endpoint. Always returns `200 OK`.
 async fn status() -> Result<StatusCode> {
     Ok(StatusCode::OK)
 }
 
+/// Returns the contents of the RSA public key file.
 async fn public_key() -> Result<String> {
     let public_key_pem = tokio::fs::read_to_string(util::get_data_dir().join("public.pem"))
         .await
@@ -56,6 +59,7 @@ async fn public_key() -> Result<String> {
     Ok(public_key_pem)
 }
 
+/// Creates a new clipboard with optional text, files, and metadata sent via multipart form data.
 async fn create_clipboard(
     State(db_controller): State<models::DatabaseController>,
     mut multipart: Multipart,
@@ -168,6 +172,7 @@ async fn create_clipboard(
     Ok(StatusCode::CREATED)
 }
 
+/// Returns a list of all stored clipboards with their content and metadata.
 async fn list_clipboards(
     State(db_controller): State<models::DatabaseController>,
 ) -> Result<(StatusCode, Json<Vec<models::GetClipboardsResponse>>)> {
@@ -193,6 +198,7 @@ async fn list_clipboards(
     }
 }
 
+/// Updates an existing clipboard with new text, added files, or removed files.
 async fn update_clipboard(
     State(db_controller): State<models::DatabaseController>,
     Path(name): Path<String>,
@@ -264,6 +270,7 @@ async fn update_clipboard(
     Ok(StatusCode::OK)
 }
 
+/// Deletes a clipboard and all associated files from the system.
 async fn delete_clipboard(
     State(db_controller): State<models::DatabaseController>,
     Path(name): Path<String>,
@@ -273,6 +280,7 @@ async fn delete_clipboard(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Streams a file to the client by its ID, if it exists.
 async fn download_file(
     State(_db_controller): State<models::DatabaseController>,
     Path(id): Path<String>,
