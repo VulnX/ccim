@@ -341,6 +341,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         delete_payload: &Vec<String>,
         added_file_map: &HashMap<String, String>,
     ) -> Result<UpdateClipboardResponse> {
+        self.ensure_clipboard_exists(clipboard_name).await?;
         let mut res = UpdateClipboardResponse { text_file_id: None };
         let conn = self.db.lock().await;
 

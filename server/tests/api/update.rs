@@ -85,3 +85,25 @@ async fn test_update_files() {
     assert!(!response[0].file_map.contains_key("file1"));
     assert!(response[0].file_map.contains_key("file3"));
 }
+
+#[tokio::test]
+#[serial]
+async fn test_non_existing() {
+    let server = init_test().await;
+    let passwd_hash = json!({
+        "hash": vec![0],
+        "timestamp": Utc::now().timestamp() as u64,
+    })
+    .to_string();
+    let info = json!({
+        "passwd": ccim_server::util::encrypt(passwd_hash.into()).await,
+        "new_text": "BBBB",
+    });
+    let info = Part::text(info.to_string());
+    let form = MultipartForm::new().add_part("info", info);
+    server
+        .patch("/api/clipboards/clip")
+        .multipart(form)
+        .await
+        .assert_status_not_found();
+}
