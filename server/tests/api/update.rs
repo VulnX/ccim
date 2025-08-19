@@ -81,9 +81,9 @@ async fn test_update_files() {
         .assert_status(StatusCode::OK);
 
     let body = server.get("/api/clipboards").await.text();
-    let response = serde_json::from_str::<Vec<GetClipboardsResponse>>(&body).unwrap();
-    assert!(!response[0].file_map.contains_key("file1"));
-    assert!(response[0].file_map.contains_key("file3"));
+    let clipboards = serde_json::from_str::<Vec<GetClipboardsResponse>>(&body).unwrap();
+    assert!(!clipboards[0].file_map.contains_key("file1"));
+    assert!(clipboards[0].file_map.contains_key("file3"));
 }
 
 #[tokio::test]
@@ -106,4 +106,35 @@ async fn test_non_existing() {
         .multipart(form)
         .await
         .assert_status_not_found();
+}
+
+#[tokio::test]
+#[serial]
+async fn test_invalid_passwd() {
+    let server = init_test().await;
+    let form = make_clipboard_form("clip", 300, None, vec![], true).await;
+    server
+        .post("/api/clipboards")
+        .multipart(form)
+        .await
+        .assert_status(StatusCode::CREATED);
+    let passwd_hash = json!({
+        "hash": vec![1],
+        "timestamp": Utc::now().timestamp() as u64,
+    })
+    .to_string();
+    let info = json!({
+        "passwd": ccim_server::util::encrypt(passwd_hash.into()).await,
+        "new_text": "BBBB",
+    });
+    let info = Part::text(info.to_string());
+    let file = Part::bytes("new contents".as_bytes().to_vec()).file_name("new");
+    let form = MultipartForm::new()
+        .add_part("file", file)
+        .add_part("info", info);
+    server
+        .patch("/api/clipboards/clip")
+        .multipart(form)
+        .await
+        .assert_status_unauthorized();
 }

@@ -265,11 +265,28 @@ CREATE TABLE IF NOT EXISTS clipboard_files
     pub async fn delete_clipboard(
         &self,
         clipboard_name: String,
+        given_passwd: Option<Passwd>,
     ) -> Result<DeleteClipboardResponse> {
         self.ensure_clipboard_exists(&clipboard_name).await?;
 
         // Lock the database connection for this operation
         let conn = self.db.lock().await;
+
+        // If clipboard is encrypted, verify the provided password
+        let mut stmt = conn
+            .prepare("SELECT passwd_hash from clipboards WHERE clipboard_name = ?")
+            .map_err(Error::Database)?;
+        let stored_passwd = stmt
+            .query_row([&clipboard_name], |row| row.get::<_, Option<Vec<u8>>>(0))
+            .map_err(Error::Database)?;
+        if let Some(stored_hash) = stored_passwd {
+            let given_passwd = given_passwd.ok_or(Error::BadRequest(Some(
+                "Password is needed to delete encrypted clipboard",
+            )))?;
+            if given_passwd.hash != stored_hash {
+                return Err(Error::Unauthorized(Some("Invalid password!")));
+            }
+        }
 
         // Fetch the text_file_id for the specified clipboard.
         let mut stmt = conn
@@ -278,11 +295,6 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         let text_file_id = stmt
             .query_row([&clipboard_name], |row| row.get(0))
             .map_err(Error::Database)?;
-
-        // let mut clipboards_row = stmt
-        // .query_map([&clipboard_name], |row| row.get::<_, String>(0))
-        // .map_err(Error::Database)?;
-        // let text_file_id = clipboards_row.next().and_then(|row| row.ok()).unwrap();
 
         // Fetch all file_ids associated with the clipboard.
         let mut stmt = conn
@@ -343,6 +355,34 @@ CREATE TABLE IF NOT EXISTS clipboard_files
     ) -> Result<UpdateClipboardResponse> {
         self.ensure_clipboard_exists(clipboard_name).await?;
         let mut res = UpdateClipboardResponse { text_file_id: None };
+
+        // If clipboard is encrypted, verify the provided password
+        let stored_passwd = {
+            let conn = self.db.lock().await;
+            let mut stmt = conn
+                .prepare("SELECT passwd_hash FROM clipboards WHERE clipboard_name = ?")
+                .map_err(Error::Database)?;
+
+            let stored_passwd = stmt
+                .query_row([&clipboard_name], |row| row.get::<_, Option<Vec<u8>>>(0))
+                .map_err(Error::Database)?;
+            stored_passwd
+        };
+        if let Some(stored_hash) = stored_passwd {
+            let Some(info) = info_payload else {
+                return Err(Error::BadRequest(Some(
+                    "Part `info` is needed to update encrypted clipboard",
+                )));
+            };
+            let given_passwd_bytes = info.passwd.clone().ok_or(Error::BadRequest(Some(
+                "Password is needed to update encrypted clipboard",
+            )))?;
+            let given_passwd = util::get_passwd(given_passwd_bytes).await?;
+            if given_passwd.hash != stored_hash {
+                return Err(Error::Unauthorized(Some("Invalid password!")));
+            }
+        }
+
         let conn = self.db.lock().await;
 
         // If non empty list, delete files
@@ -396,32 +436,6 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         info: &UpdateClipboardInfoPayload,
     ) -> Result<Option<String>> {
         let mut res = None;
-
-        // Fetch stored password
-        let stored_passwd: Option<Vec<u8>>;
-        {
-            let conn = self.db.lock().await;
-            // Check if this clipboard is encrypted
-            let mut stmt = conn
-                .prepare("SELECT passwd_hash FROM clipboards WHERE clipboard_name = ?")
-                .map_err(Error::Database)?;
-
-            stored_passwd = stmt
-                .query_row([&clipboard_name], |row| row.get::<_, Option<Vec<u8>>>(0))
-                .map_err(Error::Database)?;
-            // `conn` gets dropped here
-        }
-
-        // If clipboard is encrypted, verify the provided password
-        if let Some(stored_hash) = stored_passwd {
-            let given_passwd_bytes = info.passwd.clone().ok_or(Error::BadRequest(Some(
-                "Password is needed to update encrypted clipboard",
-            )))?;
-            let given_passwd = util::get_passwd(given_passwd_bytes).await?;
-            if given_passwd.hash != stored_hash {
-                return Err(Error::Unauthorized(Some("Invalid password!")));
-            }
-        }
 
         let conn = self.db.lock().await;
 
