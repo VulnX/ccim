@@ -34,9 +34,8 @@ fn ensure_dir_exists(path: &PathBuf) {
     }
 }
 
-
 /// Deletes `text` and `files` associated with a clipboard from the filesystem
-/// 
+///
 /// ## Arguments
 /// * `text` - A `String` representing file id storing the clipboard text
 /// * `files` - A `Vec` of `String` representing all file ids associated with the clipboard

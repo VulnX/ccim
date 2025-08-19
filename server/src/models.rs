@@ -58,7 +58,7 @@ pub struct FullClipboardData {
     pub is_encrypted: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct GetClipboardsResponse {
     pub name: String,
     pub text: String,
@@ -142,10 +142,10 @@ CREATE TABLE IF NOT EXISTS clipboard_files
     }
 
     /// Add a new clipboard to the database
-    /// 
+    ///
     /// ## Arguments
     /// * `clipboard` - A `CreateClipboardPayload` type request containg new clipboard data
-    /// 
+    ///
     /// ## Returns
     /// * A `Result` containing nothing on success, or an `Error` on failure.
     pub async fn add_clipboard(&self, clipboard: CreateClipboardPayload) -> Result<()> {
@@ -193,13 +193,13 @@ CREATE TABLE IF NOT EXISTS clipboard_files
     }
 
     /// Get all existing clipboards details.
-    /// 
+    ///
     /// ## Arguments
     /// * None
-    /// 
+    ///
     /// ## Returns
     /// * A `Result` containing a `Vec` of `FullClipboardData` on success, or an `Error` on failure.
-    /// 
+    ///
     /// ## Notes
     /// * Invoking this function automatically calls the `clear_expired_clipboards`
     ///   filter which removes expired clipboards details from the database as
