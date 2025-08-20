@@ -390,9 +390,13 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             let query = repeat_n("?", delete_payload.len())
                 .collect::<Vec<_>>()
                 .join(", ");
-            let query = format!("DELETE FROM clipboard_files WHERE file_id = {query}");
+            let query = format!(
+                "DELETE FROM clipboard_files WHERE file_id in ({query}) AND clipboard_name = ?"
+            );
             let mut stmt = conn.prepare(&query).map_err(Error::Database)?;
-            stmt.execute(params_from_iter(delete_payload))
+            let mut delete_payload = delete_payload.clone();
+            delete_payload.push(clipboard_name.into());
+            stmt.execute(params_from_iter::<Vec<String>>(delete_payload))
                 .map_err(Error::Database)?;
         }
 
@@ -407,9 +411,9 @@ CREATE TABLE IF NOT EXISTS clipboard_files
 
         drop(conn); // Drop mutex guard here to allow further nested calls to
                     // acquire it
-                    // Update info at last
-                    // This is deliberately done at the end because updating `info` might
-                    // lead to changing `name` which will break other INSERT/DELETE queries
+                    // Update info at last. This is deliberately done at the
+                    // end because updating `info` might lead to changing
+                    // `name` which will break other INSERT/DELETE queries
                     // PS : Updating `name` is NOT supported as of now. This only exists as
                     // a sort of reminder for the future, preventing potentials bugs
         if let Some(info) = info_payload {
