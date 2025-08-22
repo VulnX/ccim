@@ -13,7 +13,6 @@ function SearchBar() {
       }}
     >
       <TextField
-        sx={{ backgroundColor: "white" }}
         fullWidth
         label="Search"
         variant="outlined"
