@@ -21,7 +21,7 @@ function App() {
             bottom: 32,
           }}
         >
-          <AddIcon />
+          <AddIcon sx={{ fontSize: "2rem" }} />
         </Fab>
       </Tooltip>
     </>
