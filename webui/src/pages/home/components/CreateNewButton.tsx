@@ -1,7 +1,12 @@
 import { CreateOutlined } from "@mui/icons-material";
 import { Button, Stack } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 
 function CreateNewButton() {
+    const nagivate = useNavigate();
+    const redirectTo = (path: string) => {
+        nagivate(path);
+    };
     return (
         <Stack sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Button
@@ -33,6 +38,7 @@ function CreateNewButton() {
                         },
                     },
                 }}
+                onClick={() => redirectTo('/create')}
                 startIcon={<CreateOutlined />}>
                 NEW
             </Button>

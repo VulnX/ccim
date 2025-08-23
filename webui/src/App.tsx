@@ -1,20 +1,17 @@
-import { Box, Divider, Stack } from "@mui/material";
-import SearchBar from "./components/SearchBar";
-import ClipboardList from "./components/ClipboardList";
-import CreateNewButton from "./components/CreateNewButton";
+import type React from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import Home from "./pages/home/Home";
+import Create from "./pages/create/Create";
 
-function App() {
-  return (
-    <>
-      <Box sx={{ paddingY: 1, paddingX: { xs: 1, lg: 30 } }}>
-        <Stack spacing={2} divider={<Divider orientation="horizontal" />}>
-          <SearchBar />
-          <ClipboardList />
-        </Stack>
-      </Box>
-      <CreateNewButton />
-    </>
-  );
-}
+const App: React.FC = () => {
+    return (
+        <BrowserRouter>
+            <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/create" element={<Create />} />
+            </Routes>
+        </BrowserRouter>
+    );
+};
 
 export default App;

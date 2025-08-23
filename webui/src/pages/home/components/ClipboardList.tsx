@@ -1,4 +1,4 @@
-import { Stack } from "@mui/material";
+import { Stack, Typography } from "@mui/material";
 import ClipboardEntry from "./ClipboardEntry";
 import type { JSX } from "@emotion/react/jsx-runtime";
 
@@ -41,7 +41,7 @@ export default App;`;
     <Stack gap={2}>
       {
         clipboard_entries.length == 0
-        ? 'No clipboards created'
+        ? <Typography textAlign="center">No clipboards available</Typography>
         : clipboard_entries
       }
     </Stack>

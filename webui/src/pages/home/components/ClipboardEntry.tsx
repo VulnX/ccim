@@ -1,8 +1,7 @@
 import { Box, Button, Collapse, Divider, IconButton, Paper, Stack, Tooltip, Typography } from "@mui/material";
 import PublicIcon from "@mui/icons-material/Public";
 import LockIcon from "@mui/icons-material/Lock";
-import type React from "react";
-import { useState } from "react";
+import React from "react";
 import EditIcon from '@mui/icons-material/Edit';
 import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
@@ -20,7 +19,7 @@ const ClipboardEntry: React.FC<ClipboardEntryProps> = ({
   text,
   files,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = React.useState(false);
 
   const handleToggleExpand = () => {
     setIsExpanded((prev) => !prev);
