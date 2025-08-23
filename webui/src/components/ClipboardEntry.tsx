@@ -17,35 +17,8 @@ type ClipboardEntryProps = {
 const ClipboardEntry: React.FC<ClipboardEntryProps> = ({
   name,
   isEncypted,
-  text = `import { Box, Button, Divider, Fab, Stack, Tooltip } from "@mui/material";
-import SearchBar from "./components/SearchBar";
-import ClipboardList from "./components/ClipboardList";
-import AddIcon from "@mui/icons-material/Add";
-
-function App() {
-  return (
-    <>
-      <Box sx={{ paddingY: 1, paddingX: { xs: 1, lg: 30 } }}>
-        <Stack spacing={5} divider={<Divider orientation="horizontal" />}>
-          <SearchBar />
-          <ClipboardList />
-        </Stack>
-      </Box>
-      <Tooltip title="New">
-        <Button variant="contained" sx={{ position: 'fixed', bottom: 16, right: 16 }}> <Button variant="contained" sx={{ position: 'fixed', bottom: 16, right: 16 }}>
-          Compose
-        </Button>
-      </Tooltip>
-    </>
-  );
-}
-
-export default App;`,
-  files = {
-    "AAAA": "file1",
-    "BBBB": "file2",
-    "CCCC": "file3",
-  },
+  text,
+  files,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -106,7 +79,12 @@ export default App;`,
               return <Button
                 key={fileId}
                 fullWidth
-                sx={{ justifyContent: 'start', textTransform: 'none' }}
+                sx={{
+                  justifyContent: 'start',
+                  textTransform: 'none',
+                  textAlign: 'left',
+                  wordBreak: 'break-word'
+                }}
                 variant="outlined"
               >{fileName}</Button>
             })
