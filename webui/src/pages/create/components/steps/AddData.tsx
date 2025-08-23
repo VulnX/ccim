@@ -1,5 +1,17 @@
-import { Box, Button, Tab, Tabs, TextField } from "@mui/material";
+import {
+  Box,
+  Button,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText,
+  Tab,
+  Tabs,
+  TextField,
+  Tooltip,
+} from "@mui/material";
 import React, { useState } from "react";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 const AddDataStep: React.FC = () => {
   const [value, setValue] = React.useState("text");
@@ -34,9 +46,13 @@ const AddDataStep: React.FC = () => {
     setFileList(updatedFileList);
   };
 
+  const deleteFile = (fileToDelete: File) => {
+    setFileList(fileList.filter((file) => file !== fileToDelete));
+  };
+
   return (
     <>
-      <Tabs value={value} onChange={handleTabChange}>
+      <Tabs value={value} onChange={handleTabChange} variant="fullWidth">
         <Tab value="text" label="Text" />
         <Tab value="files" label="Files" />
       </Tabs>
@@ -52,14 +68,41 @@ const AddDataStep: React.FC = () => {
               type="file"
               ref={inputRef}
               hidden
+              multiple
               onChange={handleFilePicker}
             />
             <Button variant="outlined" fullWidth onClick={handleButtonClick}>
               Select files
             </Button>
-            {fileList.map((file) => {
-              return <p>{file.name}</p>;
-            })}
+            <List>
+              {fileList.map((file) => {
+                return (
+                  <ListItem
+                    secondaryAction={
+                      <Tooltip title="Delete">
+                        <IconButton onClick={() => deleteFile(file)}>
+                          <DeleteIcon color="error" />
+                        </IconButton>
+                      </Tooltip>
+                    }
+                    sx={{
+                      border: 1,
+                      borderColor: "divider",
+                      borderRadius: 1,
+                      marginY: 1,
+                    }}
+                  >
+                    <ListItemText
+                      primary={file.name}
+                      secondary={`${file.size} bytes`}
+                      sx={{
+                        wordBreak: "break-all",
+                      }}
+                    />
+                  </ListItem>
+                );
+              })}
+            </List>
           </>
         )}
       </Box>

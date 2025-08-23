@@ -38,7 +38,19 @@ const CreateClipboardStepper: React.FC = () => {
   };
 
   return (
-    <Paper sx={{ maxWidth: "70%", marginLeft: "15%" }}>
+    <Paper
+      sx={{
+        maxWidth: {
+          xs: "100%",
+          lg: "70%",
+        },
+        marginLeft: {
+          xs: "0%",
+          lg: "15%",
+        },
+        marginY: 5,
+      }}
+    >
       <Stepper
         activeStep={activeStep}
         orientation="vertical"
