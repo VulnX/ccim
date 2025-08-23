@@ -7,7 +7,7 @@ function App() {
   return (
     <>
       <Box sx={{ paddingY: 1, paddingX: { xs: 1, lg: 30 } }}>
-        <Stack spacing={5} divider={<Divider orientation="horizontal" />}>
+        <Stack spacing={2} divider={<Divider orientation="horizontal" />}>
           <SearchBar />
           <ClipboardList />
         </Stack>

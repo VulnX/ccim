@@ -1,4 +1,4 @@
-import { IconButton, Stack, TextField } from "@mui/material";
+import { IconButton, Stack, TextField, Tooltip } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 
 function SearchBar() {
@@ -17,9 +17,11 @@ function SearchBar() {
         label="Search"
         variant="outlined"
       />
-      <IconButton>
-        <RefreshIcon sx={{ fontSize: "3rem" }} />
-      </IconButton>
+      <Tooltip title="Reload">
+        <IconButton>
+          <RefreshIcon sx={{ fontSize: "3rem" }} />
+        </IconButton>
+      </Tooltip>
     </Stack>
   );
 }
