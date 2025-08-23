@@ -19,7 +19,7 @@ const AddDataStep: React.FC = () => {
     if (!selectedFiles || selectedFiles.length === 0) return;
 
     const existingFileKeys = new Set(
-      fileList.map((file) => file.name + file.size + file.lastModified)
+      fileList.map((file) => file.name + file.size + file.lastModified),
     );
     const newFiles: File[] = [];
 

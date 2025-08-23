@@ -1,8 +1,9 @@
 body {
-    background-color: #fafafa;
+  background-color: #fafafa;
 }
 
-body, html {
+body,
+html {
   margin: 0;
   padding: 0;
 }

@@ -1,10 +1,20 @@
-import { Box, Button, Collapse, Divider, IconButton, Paper, Stack, Tooltip, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  Collapse,
+  Divider,
+  IconButton,
+  Paper,
+  Stack,
+  Tooltip,
+  Typography,
+} from "@mui/material";
 import PublicIcon from "@mui/icons-material/Public";
 import LockIcon from "@mui/icons-material/Lock";
 import React from "react";
-import EditIcon from '@mui/icons-material/Edit';
-import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded';
-import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
+import EditIcon from "@mui/icons-material/Edit";
+import KeyboardArrowRightRoundedIcon from "@mui/icons-material/KeyboardArrowRightRounded";
+import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
 
 type ClipboardEntryProps = {
   name: string;
@@ -26,15 +36,31 @@ const ClipboardEntry: React.FC<ClipboardEntryProps> = ({
   };
 
   return (
-    <Paper elevation={2} sx={{ padding: "16px", "&:hover": { boxShadow: 4 }, }}>
-      <Stack sx={{ cursor: "pointer" }} direction="row" justifyContent="space-between" onClick={handleToggleExpand} >
+    <Paper elevation={2} sx={{ padding: "16px", "&:hover": { boxShadow: 4 } }}>
+      <Stack
+        sx={{ cursor: "pointer" }}
+        direction="row"
+        justifyContent="space-between"
+        onClick={handleToggleExpand}
+      >
         <Stack direction="row" alignItems={"center"}>
-          {isExpanded ? <KeyboardArrowDownRoundedIcon /> : <KeyboardArrowRightRoundedIcon />}
+          {isExpanded ? (
+            <KeyboardArrowDownRoundedIcon />
+          ) : (
+            <KeyboardArrowRightRoundedIcon />
+          )}
           <Typography marginLeft={1}>{name}</Typography>
         </Stack>
-        <Tooltip title={isExpanded ? "Edit" : isEncypted ? "Private" : "Public"}>
-          <IconButton disableRipple={!isExpanded} onClick={e => e.stopPropagation()}>
-            {isExpanded ? (<EditIcon />) : isEncypted ? (
+        <Tooltip
+          title={isExpanded ? "Edit" : isEncypted ? "Private" : "Public"}
+        >
+          <IconButton
+            disableRipple={!isExpanded}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {isExpanded ? (
+              <EditIcon />
+            ) : isEncypted ? (
               <LockIcon color="error" />
             ) : (
               <PublicIcon color="info" />
@@ -43,51 +69,57 @@ const ClipboardEntry: React.FC<ClipboardEntryProps> = ({
         </Tooltip>
       </Stack>
       <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-        <Box sx={{ position: 'relative', mb: 2 }}>
+        <Box sx={{ position: "relative", mb: 2 }}>
           <Typography
             variant="caption"
             sx={{
-              position: 'absolute',
+              position: "absolute",
               top: -10,
               left: 10,
-              backgroundColor: 'white',
+              backgroundColor: "white",
               px: 0.5,
-              color: 'primary.main',
-              fontSize: '0.8rem',
+              color: "primary.main",
+              fontSize: "0.8rem",
             }}
-          >Text</Typography>
+          >
+            Text
+          </Typography>
           <Box
             component="pre"
             sx={{
-              fontFamily: 'monospace',
-              border: '1px solid',
-              borderColor: 'primary.main',
+              fontFamily: "monospace",
+              border: "1px solid",
+              borderColor: "primary.main",
               borderRadius: 1,
               p: 2,
-              overflowX: 'auto',
+              overflowX: "auto",
             }}
           >
             {text}
           </Box>
         </Box>
         <Divider />
-        <Typography variant="h5" marginTop={2}>Files</Typography>
+        <Typography variant="h5" marginTop={2}>
+          Files
+        </Typography>
         <Stack gap={2} marginTop={2}>
-          {
-            Object.entries(files).map(([fileId, fileName]) => {
-              return <Button
+          {Object.entries(files).map(([fileId, fileName]) => {
+            return (
+              <Button
                 key={fileId}
                 fullWidth
                 sx={{
-                  justifyContent: 'start',
-                  textTransform: 'none',
-                  textAlign: 'left',
-                  wordBreak: 'break-word'
+                  justifyContent: "start",
+                  textTransform: "none",
+                  textAlign: "left",
+                  wordBreak: "break-word",
                 }}
                 variant="outlined"
-              >{fileName}</Button>
-            })
-          }
+              >
+                {fileName}
+              </Button>
+            );
+          })}
         </Stack>
       </Collapse>
     </Paper>

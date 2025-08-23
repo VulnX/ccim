@@ -3,12 +3,12 @@ import Navbar from "./components/Navbar";
 import CreateClipboardStepper from "./components/CreateClipboardStepper";
 
 const Create: React.FC = () => {
-    return (
-        <>
-            <Navbar />
-            <CreateClipboardStepper />
-        </>
-    );
+  return (
+    <>
+      <Navbar />
+      <CreateClipboardStepper />
+    </>
+  );
 };
 
 export default Create;

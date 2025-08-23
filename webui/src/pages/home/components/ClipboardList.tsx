@@ -28,22 +28,37 @@ function App() {
 
 export default App;`;
   const default_files = {
-    "AAAA": "file1",
-    "BBBB": "file2",
-    "CCCC": "file3",
+    AAAA: "file1",
+    BBBB: "file2",
+    CCCC: "file3",
   };
   const clipboard_entries: JSX.Element[] = [
-    <ClipboardEntry name="This is message 1" isEncypted={false} text={default_text} files={default_files} />,
-    <ClipboardEntry name="This is message 2" isEncypted={false} text={default_text} files={default_files} />,
-    <ClipboardEntry name="This is message 3" isEncypted={true} text={default_text} files={default_files} />,
-  ]
+    <ClipboardEntry
+      name="This is message 1"
+      isEncypted={false}
+      text={default_text}
+      files={default_files}
+    />,
+    <ClipboardEntry
+      name="This is message 2"
+      isEncypted={false}
+      text={default_text}
+      files={default_files}
+    />,
+    <ClipboardEntry
+      name="This is message 3"
+      isEncypted={true}
+      text={default_text}
+      files={default_files}
+    />,
+  ];
   return (
     <Stack gap={2}>
-      {
-        clipboard_entries.length == 0
-        ? <Typography textAlign="center">No clipboards available</Typography>
-        : clipboard_entries
-      }
+      {clipboard_entries.length == 0 ? (
+        <Typography textAlign="center">No clipboards available</Typography>
+      ) : (
+        clipboard_entries
+      )}
     </Stack>
   );
 }

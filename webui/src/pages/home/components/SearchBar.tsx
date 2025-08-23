@@ -12,11 +12,7 @@ function SearchBar() {
         },
       }}
     >
-      <TextField
-        fullWidth
-        label="Search"
-        variant="outlined"
-      />
+      <TextField fullWidth label="Search" variant="outlined" />
       <Tooltip title="Reload">
         <IconButton>
           <RefreshIcon sx={{ fontSize: "3rem" }} />
