@@ -6,16 +6,16 @@ import StepContent from "@mui/material/StepContent";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import React from "react";
-import NameStep from "./steps/Name";
+import NameStep, { getRandomName } from "./steps/Name";
 import AddDataStep from "./steps/AddData";
 import { Paper } from "@mui/material";
 import SecurityStep from "./steps/Security";
 
 const CreateClipboardStepper: React.FC = () => {
-  const [activeStep, setActiveStep] = React.useState(0);
+  const [activeStep, setActiveStep] = React.useState(1);
 
   // Persistant state variables for each step data
-  const [name, setName] = React.useState("");
+  const [name, setName] = React.useState(getRandomName());
   const [text, setText] = React.useState<string>("");
   const [fileList, setFileList] = React.useState<Array<File>>([]);
   const [isEncrypted, setIsEncrypted] = React.useState(false);
