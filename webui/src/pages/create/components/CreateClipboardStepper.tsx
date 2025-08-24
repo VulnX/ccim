@@ -10,6 +10,7 @@ import NameStep, { getRandomName } from "./steps/Name";
 import AddDataStep from "./steps/AddData";
 import { Paper } from "@mui/material";
 import SecurityStep from "./steps/Security";
+import { createClipboard } from "./util";
 
 const CreateClipboardStepper: React.FC = () => {
   const [activeStep, setActiveStep] = React.useState(1);
@@ -50,8 +51,14 @@ const CreateClipboardStepper: React.FC = () => {
     },
   ];
 
-  const handleNext = () => {
+  const handleNext = (index: number) => {
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
+    // All steps completed: Proceed to submit form
+    if (index === steps.length - 1) {
+      setTimeout(async () => {
+        await createClipboard(name, text, fileList, isEncrypted, password);
+      }, 300);
+    }
   };
 
   const handleBack = () => {
@@ -95,7 +102,7 @@ const CreateClipboardStepper: React.FC = () => {
               <Box sx={{ mb: 2 }}>
                 <Button
                   variant="contained"
-                  onClick={handleNext}
+                  onClick={() => handleNext(index)}
                   sx={{ mt: 1, mr: 1 }}
                 >
                   {index === steps.length - 1 ? "Create" : "Next"}
