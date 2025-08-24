@@ -10,10 +10,14 @@ import NameStep, { getRandomName } from "./steps/Name";
 import AddDataStep from "./steps/AddData";
 import { Paper } from "@mui/material";
 import SecurityStep from "./steps/Security";
-import { createClipboard } from "./util";
+import { createClipboard, type DialogDetails } from "./util";
+import CustomDialog from "./CustomDialog";
 
 const CreateClipboardStepper: React.FC = () => {
   const [activeStep, setActiveStep] = React.useState(1);
+  const [showDialog, setShowDialog] = React.useState(false);
+  const [dialogDetails, setDialogDetails] =
+    React.useState<DialogDetails | null>(null);
 
   // Persistant state variables for each step data
   const [name, setName] = React.useState(getRandomName());
@@ -56,7 +60,15 @@ const CreateClipboardStepper: React.FC = () => {
     // All steps completed: Proceed to submit form
     if (index === steps.length - 1) {
       setTimeout(async () => {
-        await createClipboard(name, text, fileList, isEncrypted, password);
+        const dialogDetails = await createClipboard(
+          name,
+          text,
+          fileList,
+          isEncrypted,
+          password
+        );
+        setDialogDetails(dialogDetails);
+        setShowDialog(true);
       }, 300);
     }
   };
@@ -65,61 +77,73 @@ const CreateClipboardStepper: React.FC = () => {
     setActiveStep((prevActiveStep) => prevActiveStep - 1);
   };
 
+  const closeDialog = () => {
+    setShowDialog(false);
+    setActiveStep(1);
+  };
+
   return (
-    <Paper
-      sx={{
-        maxWidth: {
-          xs: "100%",
-          lg: "70%",
-        },
-        marginLeft: {
-          xs: "0%",
-          lg: "15%",
-        },
-        marginY: 5,
-      }}
-    >
-      <Stepper
-        activeStep={activeStep}
-        orientation="vertical"
-        sx={{ marginX: 3, paddingY: 3 }}
+    <React.Fragment>
+      <Paper
+        sx={{
+          maxWidth: {
+            xs: "100%",
+            lg: "70%",
+          },
+          marginLeft: {
+            xs: "0%",
+            lg: "15%",
+          },
+          marginY: 5,
+        }}
       >
-        {steps.map((step, index) => (
-          <Step key={step.label}>
-            <StepLabel
-              optional={
-                index === steps.length - 1 ? (
-                  <Typography variant="caption" fontStyle="italic">
-                    (Optional)
-                  </Typography>
-                ) : null
-              }
-            >
-              {step.label}
-            </StepLabel>
-            <StepContent>
-              {step.component}
-              <Box sx={{ mb: 2 }}>
-                <Button
-                  variant="contained"
-                  onClick={() => handleNext(index)}
-                  sx={{ mt: 1, mr: 1 }}
-                >
-                  {index === steps.length - 1 ? "Create" : "Next"}
-                </Button>
-                <Button
-                  disabled={index === 0}
-                  onClick={handleBack}
-                  sx={{ mt: 1, mr: 1 }}
-                >
-                  Back
-                </Button>
-              </Box>
-            </StepContent>
-          </Step>
-        ))}
-      </Stepper>
-    </Paper>
+        <Stepper
+          activeStep={activeStep}
+          orientation="vertical"
+          sx={{ marginX: 3, paddingY: 3 }}
+        >
+          {steps.map((step, index) => (
+            <Step key={step.label}>
+              <StepLabel
+                optional={
+                  index === steps.length - 1 ? (
+                    <Typography variant="caption" fontStyle="italic">
+                      (Optional)
+                    </Typography>
+                  ) : null
+                }
+              >
+                {step.label}
+              </StepLabel>
+              <StepContent>
+                {step.component}
+                <Box sx={{ mb: 2 }}>
+                  <Button
+                    variant="contained"
+                    onClick={() => handleNext(index)}
+                    sx={{ mt: 1, mr: 1 }}
+                  >
+                    {index === steps.length - 1 ? "Create" : "Next"}
+                  </Button>
+                  <Button
+                    disabled={index === 0}
+                    onClick={handleBack}
+                    sx={{ mt: 1, mr: 1 }}
+                  >
+                    Back
+                  </Button>
+                </Box>
+              </StepContent>
+            </Step>
+          ))}
+        </Stepper>
+      </Paper>
+      <CustomDialog
+        showDialog={showDialog}
+        closeDialog={closeDialog}
+        dialogDetails={dialogDetails}
+      />
+    </React.Fragment>
   );
 };
 

@@ -1,3 +1,12 @@
+interface ApiResponse {
+  message: string;
+}
+
+export interface DialogDetails {
+  success: boolean;
+  message: string;
+}
+
 export const createClipboard = async (
   name: string,
   text: string,
@@ -21,14 +30,27 @@ export const createClipboard = async (
   });
 
   // Submit form
+  let details: DialogDetails = {
+    success: false,
+    message: "Unknown error occured",
+  };
   try {
     const response = await fetch("http://localhost:8080/api/clipboards", {
       method: "POST",
       body: formData,
     });
-    console.log("response:", response);
+    if (response.status !== 201) {
+      // If error
+      const text = await response.text();
+      const parsed: ApiResponse = JSON.parse(text);
+      details.message = parsed.message;
+    } else {
+      details.message = "Congrats! Clipboard has been created";
+    }
+    details.success = response.status === 201;
   } catch (error) {
-    console.error("Error:", error);
-    throw error;
+    details.message = "Failed to communicate with the server";
+  } finally {
+    return details;
   }
 };
