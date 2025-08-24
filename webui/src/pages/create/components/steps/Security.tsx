@@ -1,5 +1,13 @@
 import React, { useRef } from "react";
-import { Switch, Collapse, Box, Typography, Stack } from "@mui/material";
+import {
+  Switch,
+  Collapse,
+  Box,
+  Typography,
+  Stack,
+  Alert,
+  TextField,
+} from "@mui/material";
 
 function SecurityStep() {
   const [checked, setChecked] = React.useState(false);
@@ -38,10 +46,18 @@ function SecurityStep() {
         <Box
           sx={{
             marginTop: 2,
-            padding: 2,
           }}
         >
-          <Typography>TODO</Typography>
+          <Alert severity="warning">Password cannot be changed/removed again</Alert>
+          <TextField
+            autoFocus
+            fullWidth
+            type="password"
+            label="Password"
+            sx={{
+              marginTop: 3
+            }}
+          />
         </Box>
       </Collapse>
     </Box>
