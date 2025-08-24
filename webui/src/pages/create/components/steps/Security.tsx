@@ -6,8 +6,13 @@ import {
   Typography,
   Stack,
   Alert,
-  TextField,
+  FormControl,
+  InputLabel,
+  OutlinedInput,
+  InputAdornment,
+  IconButton,
 } from "@mui/material";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
 
 type SecurityStepProps = {
   isEncrypted: boolean;
@@ -36,9 +41,15 @@ const SecurityStep: React.FC<SecurityStepProps> = ({
     handleToggle();
   };
 
-  const handleChanged = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEncStateChanged = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     setIsEncrypted(event.target.checked);
   };
+
+  const [showPassword, setShowPassword] = React.useState(false);
+
+  const handleClickShowPassword = () => setShowPassword((show) => !show);
 
   return (
     <Box>
@@ -54,7 +65,7 @@ const SecurityStep: React.FC<SecurityStepProps> = ({
         <Switch
           ref={switchRef}
           checked={isEncrypted}
-          onChange={handleChanged}
+          onChange={handleEncStateChanged}
         />
       </Stack>
       <Collapse in={isEncrypted}>
@@ -66,17 +77,23 @@ const SecurityStep: React.FC<SecurityStepProps> = ({
           <Alert severity="warning">
             Password cannot be changed/removed later
           </Alert>
-          <TextField
-            autoFocus
-            fullWidth
-            type="password"
-            label="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            sx={{
-              marginTop: 3,
-            }}
-          />
+          <FormControl sx={{ marginTop: 3 }} fullWidth variant="outlined">
+            <InputLabel htmlFor="password-input">Password</InputLabel>
+            <OutlinedInput
+              id="password-input"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              endAdornment={
+                <InputAdornment position="end">
+                  <IconButton onClick={handleClickShowPassword} edge="end">
+                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                </InputAdornment>
+              }
+              label="Password"
+            />
+          </FormControl>
         </Box>
       </Collapse>
     </Box>
