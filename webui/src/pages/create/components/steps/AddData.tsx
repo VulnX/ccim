@@ -10,16 +10,27 @@ import {
   TextField,
   Tooltip,
 } from "@mui/material";
-import React, { useState } from "react";
+import React from "react";
 import DeleteIcon from "@mui/icons-material/Delete";
 
-const AddDataStep: React.FC = () => {
-  const [value, setValue] = React.useState("text");
+type AddDataProps = {
+  text: string;
+  setText: React.Dispatch<React.SetStateAction<string>>;
+  fileList: File[];
+  setFileList: React.Dispatch<React.SetStateAction<File[]>>;
+};
+
+const AddDataStep: React.FC<AddDataProps> = ({
+  text,
+  setText,
+  fileList,
+  setFileList,
+}) => {
+  const [currentTab, setCurrentTab] = React.useState("text");
   const inputRef = React.useRef<HTMLInputElement>(null);
-  const [fileList, setFileList] = useState<Array<File>>([]);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: string) => {
-    setValue(newValue);
+    setCurrentTab(newValue);
   };
 
   const handleButtonClick = () => {
@@ -52,17 +63,23 @@ const AddDataStep: React.FC = () => {
 
   return (
     <>
-      <Tabs value={value} onChange={handleTabChange} variant="fullWidth">
+      <Tabs value={currentTab} onChange={handleTabChange} variant="fullWidth">
         <Tab value="text" label="Text" />
         <Tab value="files" label="Files" />
       </Tabs>
 
       <Box sx={{ marginTop: 2 }}>
-        {value === "text" && (
-          <TextField label="Paste text here" fullWidth multiline />
+        {currentTab === "text" && (
+          <TextField
+            label="Paste text here"
+            fullWidth
+            multiline
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
         )}
 
-        {value === "files" && (
+        {currentTab === "files" && (
           <>
             <input
               type="file"

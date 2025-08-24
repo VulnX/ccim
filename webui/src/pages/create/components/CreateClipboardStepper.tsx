@@ -11,23 +11,44 @@ import AddDataStep from "./steps/AddData";
 import { Paper } from "@mui/material";
 import SecurityStep from "./steps/Security";
 
-const steps = [
-  {
-    label: "Choose a name",
-    component: <NameStep />,
-  },
-  {
-    label: "Add data",
-    component: <AddDataStep />,
-  },
-  {
-    label: "Additional security",
-    component: <SecurityStep />,
-  },
-];
-
 const CreateClipboardStepper: React.FC = () => {
   const [activeStep, setActiveStep] = React.useState(0);
+
+  // Persistant state variables for each step data
+  const [name, setName] = React.useState("");
+  const [text, setText] = React.useState<string>("");
+  const [fileList, setFileList] = React.useState<Array<File>>([]);
+  const [isEncrypted, setIsEncrypted] = React.useState(false);
+  const [password, setPassword] = React.useState<string>("");
+
+  const steps = [
+    {
+      label: "Choose a name",
+      component: <NameStep name={name} setName={setName} />,
+    },
+    {
+      label: "Add data",
+      component: (
+        <AddDataStep
+          text={text}
+          setText={setText}
+          fileList={fileList}
+          setFileList={setFileList}
+        />
+      ),
+    },
+    {
+      label: "Additional security",
+      component: (
+        <SecurityStep
+          isEncrypted={isEncrypted}
+          setIsEncrypted={setIsEncrypted}
+          password={password}
+          setPassword={setPassword}
+        />
+      ),
+    },
+  ];
 
   const handleNext = () => {
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
