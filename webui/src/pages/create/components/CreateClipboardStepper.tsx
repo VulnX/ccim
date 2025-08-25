@@ -9,12 +9,14 @@ import React from "react";
 import NameStep, { getRandomName } from "./steps/Name";
 import AddDataStep from "./steps/AddData";
 import { Paper } from "@mui/material";
-import SecurityStep from "./steps/Security";
+import SettingsStep from "./steps/Settings";
 import { createClipboard, type DialogDetails } from "./util";
 import CustomDialog from "./CustomDialog";
+import { useNavigate } from "react-router-dom";
 
 const CreateClipboardStepper: React.FC = () => {
-  const [activeStep, setActiveStep] = React.useState(1);
+  const nagivate = useNavigate();
+  const [activeStep, setActiveStep] = React.useState(2);
   const [showDialog, setShowDialog] = React.useState(false);
   const [dialogDetails, setDialogDetails] =
     React.useState<DialogDetails | null>(null);
@@ -23,10 +25,24 @@ const CreateClipboardStepper: React.FC = () => {
   const [name, setName] = React.useState(getRandomName());
   const [text, setText] = React.useState<string>("");
   const [fileList, setFileList] = React.useState<Array<File>>([]);
+  const [expiry, setExpiry] = React.useState(5 * 60);
   const [isEncrypted, setIsEncrypted] = React.useState(false);
   const [password, setPassword] = React.useState<string>("");
 
   const steps = [
+    {
+      label: "Settings",
+      component: (
+        <SettingsStep
+          expiry={expiry}
+          setExpiry={setExpiry}
+          isEncrypted={isEncrypted}
+          setIsEncrypted={setIsEncrypted}
+          password={password}
+          setPassword={setPassword}
+        />
+      ),
+    },
     {
       label: "Choose a name",
       component: <NameStep name={name} setName={setName} />,
@@ -42,17 +58,6 @@ const CreateClipboardStepper: React.FC = () => {
         />
       ),
     },
-    {
-      label: "Additional security",
-      component: (
-        <SecurityStep
-          isEncrypted={isEncrypted}
-          setIsEncrypted={setIsEncrypted}
-          password={password}
-          setPassword={setPassword}
-        />
-      ),
-    },
   ];
 
   const handleNext = (index: number) => {
@@ -64,6 +69,7 @@ const CreateClipboardStepper: React.FC = () => {
           name,
           text,
           fileList,
+          expiry,
           isEncrypted,
           password
         );
@@ -79,7 +85,7 @@ const CreateClipboardStepper: React.FC = () => {
 
   const closeDialog = () => {
     setShowDialog(false);
-    setActiveStep(1);
+    nagivate(-1);
   };
 
   return (
@@ -106,7 +112,7 @@ const CreateClipboardStepper: React.FC = () => {
             <Step key={step.label}>
               <StepLabel
                 optional={
-                  index === steps.length - 1 ? (
+                  index === 0 ? (
                     <Typography variant="caption" fontStyle="italic">
                       (Optional)
                     </Typography>
@@ -138,6 +144,7 @@ const CreateClipboardStepper: React.FC = () => {
           ))}
         </Stepper>
       </Paper>
+
       <CustomDialog
         showDialog={showDialog}
         closeDialog={closeDialog}

@@ -11,8 +11,9 @@ export const createClipboard = async (
   name: string,
   text: string,
   fileList: File[],
+  expire_after: number,
   isEncrypted: boolean,
-  password: string
+  password: string,
 ) => {
   const formData = new FormData();
 
@@ -21,13 +22,10 @@ export const createClipboard = async (
   }
   fileList.map((file) => formData.append("file", file));
   const info = {
-    name: name,
-    expire_after: 300,
+    name,
+    expire_after,
   };
   formData.append("info", JSON.stringify(info));
-  formData.forEach((value, key) => {
-    console.log(`${key} -> ${value}`);
-  });
 
   // Submit form
   let details: DialogDetails = {
