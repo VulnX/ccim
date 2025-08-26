@@ -1,66 +1,57 @@
 import { Stack, Typography } from "@mui/material";
 import ClipboardEntry from "./ClipboardEntry";
 import type { JSX } from "@emotion/react/jsx-runtime";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
 
-function ClipboardList() {
-  const default_text = `import { Box, Button, Divider, Fab, Stack, Tooltip } from "@mui/material";
-import SearchBar from "./components/SearchBar";
-import ClipboardList from "./components/ClipboardList";
-import AddIcon from "@mui/icons-material/Add";
+type GetClipboardResponse = {
+  name: string;
+  text: string;
+  file_map: { [key: string]: string };
+  isEncypted: boolean;
+};
 
-function App() {
-  return (
-    <>
-      <Box sx={{ paddingY: 1, paddingX: { xs: 1, lg: 30 } }}>
-        <Stack spacing={5} divider={<Divider orientation="horizontal" />}>
-          <SearchBar />
-          <ClipboardList />
-        </Stack>
-      </Box>
-      <Tooltip title="New">
-        <Button variant="contained" sx={{ position: 'fixed', bottom: 16, right: 16 }}> <Button variant="contained" sx={{ position: 'fixed', bottom: 16, right: 16 }}>
-          Compose
-        </Button>
-      </Tooltip>
-    </>
-  );
-}
+const ClipboardList: React.FC = () => {
+  const [clipboardEntries, setClipboardEntries] = useState<JSX.Element[]>([]);
 
-export default App;`;
-  const default_files = {
-    AAAA: "file1",
-    BBBB: "file2",
-    CCCC: "file3",
+  const hasRun = useRef(false);
+
+  const fetchAllClipboards = async () => {
+    console.log("called");
+    const response = await fetch("http://localhost:8080/api/clipboards");
+    const text = await response.text();
+    const parsed: GetClipboardResponse[] = JSON.parse(text);
+    const newClipboardEntries = parsed.map((clipboard) => {
+      return (
+        <ClipboardEntry
+          name={clipboard.name}
+          text={clipboard.text}
+          file_map={clipboard.file_map}
+          isEncypted={clipboard.isEncypted}
+        />
+      );
+    });
+    setClipboardEntries(newClipboardEntries);
   };
-  const clipboard_entries: JSX.Element[] = [
-    <ClipboardEntry
-      name="This is message 1"
-      isEncypted={false}
-      text={default_text}
-      files={default_files}
-    />,
-    <ClipboardEntry
-      name="This is message 2"
-      isEncypted={false}
-      text={default_text}
-      files={default_files}
-    />,
-    <ClipboardEntry
-      name="This is message 3"
-      isEncypted={true}
-      text={default_text}
-      files={default_files}
-    />,
-  ];
+
+  useEffect(() => {
+    if (!hasRun.current) {
+      hasRun.current = true;
+      (async () => {
+        await fetchAllClipboards();
+      })();
+    }
+  }, []);
+
   return (
     <Stack gap={2}>
-      {clipboard_entries.length == 0 ? (
+      {clipboardEntries.length == 0 ? (
         <Typography textAlign="center">No clipboards available</Typography>
       ) : (
-        clipboard_entries
+        clipboardEntries
       )}
     </Stack>
   );
-}
+};
 
 export default ClipboardList;

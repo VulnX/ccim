@@ -18,21 +18,28 @@ import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownR
 
 type ClipboardEntryProps = {
   name: string;
-  isEncypted: boolean;
   text: string;
-  files: { [key: string]: string };
+  file_map: { [key: string]: string };
+  isEncypted: boolean;
 };
 
 const ClipboardEntry: React.FC<ClipboardEntryProps> = ({
   name,
   isEncypted,
   text,
-  files,
+  file_map: files,
 }) => {
   const [isExpanded, setIsExpanded] = React.useState(false);
 
   const handleToggleExpand = () => {
     setIsExpanded((prev) => !prev);
+  };
+
+  const downloadFile = (fileName: string, fileId: string) => {
+    const link = document.createElement("a");
+    link.download = fileName;
+    link.href = `http://localhost:8080/api/clipboards/file/${fileId}`;
+    link.click();
   };
 
   return (
@@ -103,11 +110,12 @@ const ClipboardEntry: React.FC<ClipboardEntryProps> = ({
           Files
         </Typography>
         <Stack gap={2} marginTop={2}>
-          {Object.entries(files).map(([fileId, fileName]) => {
+          {Object.entries(files).map(([fileName, fileId]) => {
             return (
               <Button
                 key={fileId}
                 fullWidth
+                onClick={() => downloadFile(fileName, fileId)}
                 sx={{
                   justifyContent: "start",
                   textTransform: "none",
