@@ -350,7 +350,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         &self,
         clipboard_name: &String,
         info_payload: &Option<UpdateClipboardInfoPayload>,
-        delete_payload: &Vec<String>,
+        delete_payload: &[String],
         added_file_map: &HashMap<String, String>,
     ) -> Result<UpdateClipboardResponse> {
         self.ensure_clipboard_exists(clipboard_name).await?;
@@ -363,10 +363,8 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                 .prepare("SELECT passwd_hash FROM clipboards WHERE clipboard_name = ?")
                 .map_err(Error::Database)?;
 
-            let stored_passwd = stmt
-                .query_row([&clipboard_name], |row| row.get::<_, Option<Vec<u8>>>(0))
-                .map_err(Error::Database)?;
-            stored_passwd
+            stmt.query_row([&clipboard_name], |row| row.get::<_, Option<Vec<u8>>>(0))
+                .map_err(Error::Database)?
         };
         if let Some(stored_hash) = stored_passwd {
             let Some(info) = info_payload else {
@@ -394,7 +392,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                 "DELETE FROM clipboard_files WHERE file_id in ({query}) AND clipboard_name = ?"
             );
             let mut stmt = conn.prepare(&query).map_err(Error::Database)?;
-            let mut delete_payload = delete_payload.clone();
+            let mut delete_payload = delete_payload.to_owned();
             delete_payload.push(clipboard_name.into());
             stmt.execute(params_from_iter::<Vec<String>>(delete_payload))
                 .map_err(Error::Database)?;

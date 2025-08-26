@@ -278,15 +278,12 @@ async fn delete_clipboard(
 ) -> Result<StatusCode> {
     let mut passwd: Option<models::Passwd> = None;
     while let Ok(Some(field)) = multipart.next_field().await {
-        match field.name() {
-            Some("passwd") => {
-                let text = field.text().await.unwrap();
-                let passwd_bytes = serde_json::from_str::<Vec<u8>>(&text)
-                    .map_err(|_| Error::BadRequest(Some("Failed to parse `passwd` part")))?;
-                let _passwd = util::get_passwd(passwd_bytes.into()).await?;
-                passwd = Some(_passwd);
-            }
-            _ => {}
+        if let Some("passwd") = field.name() {
+            let text = field.text().await.unwrap();
+            let passwd_bytes = serde_json::from_str::<Vec<u8>>(&text)
+                .map_err(|_| Error::BadRequest(Some("Failed to parse `passwd` part")))?;
+            let _passwd = util::get_passwd(passwd_bytes).await?;
+            passwd = Some(_passwd);
         }
     }
     let to_be_deleted = db_controller.delete_clipboard(name, passwd).await?;
