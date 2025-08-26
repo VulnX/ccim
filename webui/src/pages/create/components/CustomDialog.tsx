@@ -4,6 +4,7 @@ import {
   DialogActions,
   DialogContent,
   Stack,
+  Typography,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import type React from "react";
@@ -46,7 +47,7 @@ const CustomDialog: React.FC<CustomDialogProps> = ({
               }}
             />
           )}
-          <p>{dialogDetails?.message}</p>
+          <Typography>{dialogDetails?.message}</Typography>
         </Stack>
       </DialogContent>
       <DialogActions>

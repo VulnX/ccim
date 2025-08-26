@@ -13,7 +13,7 @@ export const createClipboard = async (
   fileList: File[],
   expire_after: number,
   isEncrypted: boolean,
-  password: string,
+  password: string
 ) => {
   const formData = new FormData();
 
@@ -43,7 +43,7 @@ export const createClipboard = async (
       const parsed: ApiResponse = JSON.parse(text);
       details.message = parsed.message;
     } else {
-      details.message = "Congrats! Clipboard has been created";
+      details.message = `Congrats! Clipboard '${name}' has been created`;
     }
     details.success = response.status === 201;
   } catch (error) {
