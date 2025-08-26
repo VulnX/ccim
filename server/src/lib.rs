@@ -5,7 +5,7 @@ pub mod util;
 pub mod web;
 
 use anyhow::Result;
-use axum::{http::HeaderValue, Router};
+use axum::Router;
 use tower_http::cors;
 use tracing::{info, Level};
 
@@ -29,7 +29,7 @@ pub fn app() -> Router {
     let route_apis = web::api::routes();
     Router::new().nest("/api", route_apis).layer(
         cors::CorsLayer::new()
-            .allow_origin("http://localhost:5173".parse::<HeaderValue>().unwrap())
+            .allow_origin(cors::Any)
             .allow_methods(cors::Any)
             .allow_headers(cors::Any)
             .expose_headers(cors::Any),
