@@ -15,6 +15,7 @@ pub enum Error {
     BadRequest(Option<&'static str>),
     Unauthorized(Option<&'static str>),
     Database(rusqlite::Error),
+    FileDoesNotExist,
 }
 
 impl IntoResponse for Error {
@@ -62,6 +63,12 @@ impl IntoResponse for Error {
                     })),
                 )
             }
+            Error::FileDoesNotExist => (
+                StatusCode::NOT_FOUND,
+                Json(json!({
+                    "message": "Invalid file id"
+                })),
+            ),
         }
         .into_response()
     }

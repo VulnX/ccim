@@ -469,6 +469,24 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         Ok(res)
     }
 
+    /// Get the real file name mapped to the given file id
+    ///
+    /// ## Arguments
+    /// * `file_id` - The file id, whose name is to be retrieved.
+    ///
+    /// ## Returns
+    /// * A `Result` containing the `String` (the file name), or an `Error` on failure.
+    pub async fn get_file_name(&self, file_id: &String) -> Result<String> {
+        let conn = self.db.lock().await;
+        let mut stmt = conn
+            .prepare("SELECT file_name from clipboard_files WHERE file_id = ?")
+            .map_err(Error::Database)?;
+        let file_name = stmt
+            .query_row([file_id], |row| row.get::<_, String>(0))
+            .map_err(|_| Error::FileDoesNotExist)?;
+        Ok(file_name)
+    }
+
     async fn ensure_clipboard_exists(&self, clipboard_name: &String) -> Result<()> {
         let conn = self.db.lock().await;
         let mut stmt = conn

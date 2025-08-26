@@ -4,7 +4,7 @@ use axum::{
     body::Body,
     extract::{DefaultBodyLimit, Multipart, Path, State},
     http::{
-        header::{CONTENT_LENGTH, CONTENT_TYPE},
+        header::{CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE},
         StatusCode,
     },
     response::Response,
@@ -293,10 +293,11 @@ async fn delete_clipboard(
 
 /// Streams a file to the client by its ID, if it exists.
 async fn download_file(
-    State(_db_controller): State<models::DatabaseController>,
+    State(db_controller): State<models::DatabaseController>,
     Path(id): Path<String>,
 ) -> Result<Response> {
     // TODO : Add password hash checks (do we need this)
+    let file_name = db_controller.get_file_name(&id).await?;
     let file_path = util::get_files_dir().join(id);
     if !file_path.exists() {
         return Ok(Response::builder()
@@ -311,6 +312,10 @@ async fn download_file(
     Ok(Response::builder()
         .header(CONTENT_TYPE, "application/octet-stream")
         .header(CONTENT_LENGTH, file_size)
+        .header(
+            CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{file_name}\""),
+        )
         .body(body)
         .unwrap())
 }
