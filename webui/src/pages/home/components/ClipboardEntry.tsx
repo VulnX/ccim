@@ -38,7 +38,7 @@ const ClipboardEntry: React.FC<ClipboardEntryProps> = ({
   const downloadFile = (fileName: string, fileId: string) => {
     const link = document.createElement("a");
     link.download = fileName;
-    link.href = `http://localhost:8080/api/clipboards/file/${fileId}`;
+    link.href = `/api/clipboards/file/${fileId}`;
     link.click();
   };
 

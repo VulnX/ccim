@@ -17,8 +17,12 @@ const ClipboardList: React.FC = () => {
   const hasRun = useRef(false);
 
   const fetchAllClipboards = async () => {
-    console.log("called");
-    const response = await fetch("http://localhost:8080/api/clipboards");
+    const response = await fetch("/api/clipboards");
+    if (response.status === 204) return;
+    if (response.status !== 200) {
+      console.error("Failed to get all clipboards");
+      return;
+    }
     const text = await response.text();
     const parsed: GetClipboardResponse[] = JSON.parse(text);
     const newClipboardEntries = parsed.map((clipboard) => {

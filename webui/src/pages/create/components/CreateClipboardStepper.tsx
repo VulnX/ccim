@@ -71,7 +71,7 @@ const CreateClipboardStepper: React.FC = () => {
           fileList,
           expiry,
           isEncrypted,
-          password
+          password,
         );
         setDialogDetails(dialogDetails);
         setShowDialog(true);

@@ -13,7 +13,7 @@ export const createClipboard = async (
   fileList: File[],
   expire_after: number,
   isEncrypted: boolean,
-  password: string
+  password: string,
 ) => {
   const formData = new FormData();
 
@@ -33,7 +33,7 @@ export const createClipboard = async (
     message: "Unknown error occured",
   };
   try {
-    const response = await fetch("http://localhost:8080/api/clipboards", {
+    const response = await fetch("/api/clipboards", {
       method: "POST",
       body: formData,
     });
