@@ -42,7 +42,7 @@ const AddDataStep: React.FC<AddDataProps> = ({
     if (!selectedFiles || selectedFiles.length === 0) return;
 
     const existingFileKeys = new Set(
-      fileList.map((file) => file.name + file.size + file.lastModified),
+      fileList.map((file) => file.name + file.size + file.lastModified)
     );
     const newFiles: File[] = [];
 
@@ -59,6 +59,16 @@ const AddDataStep: React.FC<AddDataProps> = ({
 
   const deleteFile = (fileToDelete: File) => {
     setFileList(fileList.filter((file) => file !== fileToDelete));
+  };
+
+  const formatBytes = (bytes: number, decimals = 2) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const dm = Math.max(0, decimals);
+    const sizes = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    const size = parseFloat((bytes / Math.pow(k, i)).toFixed(dm));
+    return `${size} ${sizes[i]}`;
   };
 
   return (
@@ -111,7 +121,7 @@ const AddDataStep: React.FC<AddDataProps> = ({
                   >
                     <ListItemText
                       primary={file.name}
-                      secondary={`${file.size} bytes`}
+                      secondary={formatBytes(file.size)}
                       sx={{
                         wordBreak: "break-all",
                       }}
