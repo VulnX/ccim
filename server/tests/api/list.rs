@@ -1,6 +1,7 @@
 use crate::common::{init_test, make_clipboard_form, CLIPBOARD_TEXT};
 use axum::http::StatusCode;
 use ccim_server::models::GetClipboardsResponse;
+use chrono::Utc;
 use serial_test::serial;
 use std::collections::{HashMap, HashSet};
 
@@ -40,7 +41,8 @@ async fn test_list() {
             name: "clip1".into(),
             text: "".into(),
             file_map: HashMap::new(),
-            is_encrypted: true
+            is_encrypted: true,
+            expiry: Utc::now().timestamp() as u64 + 300
         },
     );
     assert_eq!(clipboards[1].name, "clip2");

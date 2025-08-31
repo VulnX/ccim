@@ -15,6 +15,7 @@ struct ClipboardsEntry {
     clipboard_name: String,
     text_file_id: String,
     passwd_hash: Option<Vec<u8>>,
+    expiry: u64,
 }
 
 #[derive(Debug)]
@@ -56,6 +57,7 @@ pub struct FullClipboardData {
     pub text_file_id: String,
     pub file_map: HashMap<String, String>,
     pub is_encrypted: bool,
+    pub expiry: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -64,6 +66,7 @@ pub struct GetClipboardsResponse {
     pub text: String,
     pub file_map: HashMap<String, String>,
     pub is_encrypted: bool,
+    pub expiry: u64,
 }
 
 #[derive(Debug)]
@@ -210,7 +213,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         let conn = self.db.lock().await;
 
         let mut stmt = conn
-            .prepare("SELECT clipboard_name, text_file_id, passwd_hash FROM clipboards")
+            .prepare("SELECT clipboard_name, text_file_id, passwd_hash, expiry FROM clipboards")
             .map_err(Error::Database)?;
 
         let clipboard_rows = stmt
@@ -219,6 +222,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                     clipboard_name: row.get(0)?,
                     text_file_id: row.get(1)?,
                     passwd_hash: row.get(2)?,
+                    expiry: row.get(3)?,
                 })
             })
             .map_err(Error::Database)?;
@@ -244,6 +248,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
                 text_file_id: clipboard_row.text_file_id,
                 is_encrypted: clipboard_row.passwd_hash.is_some(),
                 file_map: HashMap::new(),
+                expiry: clipboard_row.expiry,
             };
 
             for file in files_rows.filter_map(|row| row.ok()) {
