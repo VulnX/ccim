@@ -188,6 +188,7 @@ async fn list_clipboards(
             text,
             file_map: clipboard.file_map.clone(),
             is_encrypted: clipboard.is_encrypted,
+            expiry: clipboard.expiry,
         });
     }
 
