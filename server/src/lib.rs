@@ -4,9 +4,9 @@ pub mod models;
 pub mod util;
 pub mod web;
 
+use std::{env, net::SocketAddr};
+
 use anyhow::Result;
-use axum::Router;
-use tower_http::cors;
 use tracing::{info, Level};
 
 pub async fn run() -> Result<()> {
@@ -17,21 +17,16 @@ pub async fn run() -> Result<()> {
 
     util::generate_key_pair().await.unwrap();
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+    let port = env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(8080);
+
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let listener = tokio::net::TcpListener::bind(addr).await?;
 
     info!("Starting axum server on : {listener:?}");
-    axum::serve(listener, app()).await?;
+    axum::serve(listener, web::app()).await?;
 
     Ok(())
-}
-
-pub fn app() -> Router {
-    let route_apis = web::api::routes();
-    Router::new().nest("/api", route_apis).layer(
-        cors::CorsLayer::new()
-            .allow_origin(cors::Any)
-            .allow_methods(cors::Any)
-            .allow_headers(cors::Any)
-            .expose_headers(cors::Any),
-    )
 }
