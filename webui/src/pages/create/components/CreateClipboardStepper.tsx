@@ -14,7 +14,13 @@ import { createClipboard, type DialogDetails } from "./util";
 import CustomDialog from "./CustomDialog";
 import { useNavigate } from "react-router-dom";
 
-const CreateClipboardStepper: React.FC = () => {
+type CreateClipboardStepperProps = {
+  setProgress: React.Dispatch<React.SetStateAction<number | null>>;
+};
+
+const CreateClipboardStepper: React.FC<CreateClipboardStepperProps> = ({
+  setProgress,
+}) => {
   const nagivate = useNavigate();
   const [activeStep, setActiveStep] = React.useState(2);
   const [showDialog, setShowDialog] = React.useState(false);
@@ -66,6 +72,7 @@ const CreateClipboardStepper: React.FC = () => {
     if (index === steps.length - 1) {
       setTimeout(async () => {
         const dialogDetails = await createClipboard(
+          setProgress,
           name,
           text,
           fileList,
@@ -92,14 +99,6 @@ const CreateClipboardStepper: React.FC = () => {
     <React.Fragment>
       <Paper
         sx={{
-          maxWidth: {
-            xs: "100%",
-            lg: "70%",
-          },
-          marginLeft: {
-            xs: "0%",
-            lg: "15%",
-          },
           marginY: 5,
         }}
       >

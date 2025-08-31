@@ -92,11 +92,11 @@ const ClipboardEntry: React.FC<ClipboardEntryProps> = ({
         <Box>
           <Tooltip title="time remaining (in HH:MM)">
             <Chip
-            label={time}
-            color="primary"
-            size="small"
-            icon={<AccessTimeIcon />}
-          />
+              label={time}
+              color="primary"
+              size="small"
+              icon={<AccessTimeIcon />}
+            />
           </Tooltip>
           <Tooltip
             title={isExpanded ? "Edit" : isEncypted ? "Private" : "Public"}
