@@ -8,6 +8,7 @@ export interface DialogDetails {
 }
 
 export const createClipboard = async (
+  setProgress: React.Dispatch<React.SetStateAction<number | null>>,
   name: string,
   text: string,
   fileList: File[],
@@ -33,15 +34,29 @@ export const createClipboard = async (
     message: "Unknown error occured",
   };
   try {
-    const response = await fetch("/api/clipboards", {
-      method: "POST",
-      body: formData,
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/clipboards");
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        const percentage = Math.round((event.loaded / event.total) * 100);
+        setProgress(percentage);
+      }
+    };
+
+    const response = await new Promise<XMLHttpRequest>((resolve, reject) => {
+      xhr.onload = () => resolve(xhr);
+      xhr.onerror = () => reject(new Error("XHR request failed"));
+      xhr.send(formData);
     });
+
     if (response.status !== 201) {
-      // If error
-      const text = await response.text();
-      const parsed: ApiResponse = JSON.parse(text);
-      details.message = parsed.message;
+      try {
+        const parsed: ApiResponse = JSON.parse(response.responseText);
+        details.message = parsed.message;
+      } catch {
+        details.message = "An unexpected error occurred";
+      }
     } else {
       details.message = `Congrats! Clipboard '${name}' has been created`;
     }

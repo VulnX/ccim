@@ -13,7 +13,7 @@ type GetClipboardResponse = {
 
 const ClipboardList: React.FC = () => {
   const [clipboardEntries, setClipboardEntries] = React.useState<JSX.Element[]>(
-    []
+    [],
   );
   const [showProgressbar, setShowProgressbar] = React.useState(true);
 
