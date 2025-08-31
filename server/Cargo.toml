@@ -1,6 +1,32 @@
 [package]
 name = "ccim-server"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+axum = { version = "0.8.1", features = ["macros", "multipart"]}
+rusqlite = { version = "0.34.0", features = ["bundled"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+tokio = { version = "1.44.1", features = ["full"] }
+tower-http = { version = "0.6.2", features = ["fs", "limit", "cors"] }
+anyhow = "1.0.97"
+chrono = "0.4.40"
+uuid = { version = "1.16.0", features = ["v4"] }
+tokio-util = { version = "0.7.14", features = ["io"] }
+tracing-subscriber = "0.3.19"
+tracing = "0.1.41"
+rsa = "0.9.8"
+rand = "0.8.0"
+sha2 = "0.10.9"
+
+[dev-dependencies]
+axum-test = "17.3.0"
+serial_test = "3.2.0"
+
+[profile.release]
+opt-level = "z"             # Optimize for size
+lto = true                  # Enable Link Time Optimization
+codegen-units = 1           # Better optimizations with single unit
+panic = "abort"             # Remove panic unwinding code
+strip = true                # Strip symbols
