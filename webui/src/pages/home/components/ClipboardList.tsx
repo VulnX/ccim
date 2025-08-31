@@ -1,8 +1,7 @@
-import { Stack, Typography } from "@mui/material";
+import { LinearProgress, Stack, Typography } from "@mui/material";
 import ClipboardEntry from "./ClipboardEntry";
 import type { JSX } from "@emotion/react/jsx-runtime";
-import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import React from "react";
 
 type GetClipboardResponse = {
   name: string;
@@ -13,12 +12,17 @@ type GetClipboardResponse = {
 };
 
 const ClipboardList: React.FC = () => {
-  const [clipboardEntries, setClipboardEntries] = useState<JSX.Element[]>([]);
+  const [clipboardEntries, setClipboardEntries] = React.useState<JSX.Element[]>(
+    []
+  );
+  const [showProgressbar, setShowProgressbar] = React.useState(true);
 
-  const hasRun = useRef(false);
+  const hasRun = React.useRef(false);
 
   const fetchAllClipboards = async () => {
+    setShowProgressbar(true);
     const response = await fetch("/api/clipboards");
+    setShowProgressbar(false);
     if (response.status === 204) {
       setClipboardEntries([]);
       return;
@@ -45,7 +49,7 @@ const ClipboardList: React.FC = () => {
     setClipboardEntries(newClipboardEntries);
   };
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!hasRun.current) {
       hasRun.current = true;
       (async () => {
@@ -54,7 +58,9 @@ const ClipboardList: React.FC = () => {
     }
   }, []);
 
-  return (
+  return showProgressbar ? (
+    <LinearProgress />
+  ) : (
     <Stack gap={2}>
       {clipboardEntries.length == 0 ? (
         <Typography textAlign="center">No clipboards available</Typography>
