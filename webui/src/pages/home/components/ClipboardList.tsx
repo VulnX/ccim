@@ -9,6 +9,7 @@ type GetClipboardResponse = {
   text: string;
   file_map: { [key: string]: string };
   isEncypted: boolean;
+  expiry: number;
 };
 
 const ClipboardList: React.FC = () => {
@@ -18,20 +19,26 @@ const ClipboardList: React.FC = () => {
 
   const fetchAllClipboards = async () => {
     const response = await fetch("/api/clipboards");
-    if (response.status === 204) return;
+    if (response.status === 204) {
+      setClipboardEntries([]);
+      return;
+    }
     if (response.status !== 200) {
       console.error("Failed to get all clipboards");
       return;
     }
     const text = await response.text();
     const parsed: GetClipboardResponse[] = JSON.parse(text);
-    const newClipboardEntries = parsed.map((clipboard) => {
+    const newClipboardEntries = parsed.map((clipboard, idx) => {
       return (
         <ClipboardEntry
+          key={idx}
           name={clipboard.name}
           text={clipboard.text}
           file_map={clipboard.file_map}
           isEncypted={clipboard.isEncypted}
+          expiry={clipboard.expiry}
+          reload={fetchAllClipboards}
         />
       );
     });

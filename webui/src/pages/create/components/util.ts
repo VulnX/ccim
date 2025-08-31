@@ -12,8 +12,8 @@ export const createClipboard = async (
   text: string,
   fileList: File[],
   expire_after: number,
-  isEncrypted: boolean,
-  password: string,
+  _isEncrypted: boolean,
+  _password: string,
 ) => {
   const formData = new FormData();
 
