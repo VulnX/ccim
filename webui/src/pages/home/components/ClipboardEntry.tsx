@@ -90,12 +90,14 @@ const ClipboardEntry: React.FC<ClipboardEntryProps> = ({
           <Typography marginLeft={1}>{name}</Typography>
         </Stack>
         <Box>
-          <Chip
+          <Tooltip title="time remaining (in HH:MM)">
+            <Chip
             label={time}
             color="primary"
             size="small"
             icon={<AccessTimeIcon />}
           />
+          </Tooltip>
           <Tooltip
             title={isExpanded ? "Edit" : isEncypted ? "Private" : "Public"}
           >
