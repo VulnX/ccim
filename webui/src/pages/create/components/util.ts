@@ -7,25 +7,47 @@ export interface DialogDetails {
   message: string;
 }
 
+interface Info {
+  name: string;
+  expire_after: number;
+  passwd_hash?: number[];
+}
+
+interface PasswordPayload {
+  hash: number[];
+  timestamp: number;
+}
+
 export const createClipboard = async (
   setProgress: React.Dispatch<React.SetStateAction<number | null>>,
   name: string,
   text: string,
   fileList: File[],
   expire_after: number,
-  _isEncrypted: boolean,
-  _password: string,
+  isEncrypted: boolean,
+  password: string,
 ) => {
   const formData = new FormData();
 
   if (0 < text.length) {
-    formData.append("text", text);
+    formData.append("text", isEncrypted ? await encrypt(text, password) : text);
   }
-  fileList.map((file) => formData.append("file", file));
-  const info = {
+  const encryptionPromises = fileList.map(async (file) => {
+    formData.append(
+      "file",
+      isEncrypted ? await encrypt(file, password) : file,
+      file.name,
+    );
+  });
+  await Promise.all(encryptionPromises);
+  const info: Info = {
     name,
     expire_after,
   };
+  if (isEncrypted) {
+    let passwd_hash = await preparePassword(password);
+    info["passwd_hash"] = Array.from(new Uint8Array(passwd_hash));
+  }
   formData.append("info", JSON.stringify(info));
 
   // Submit form
@@ -66,4 +88,103 @@ export const createClipboard = async (
   } finally {
     return details;
   }
+};
+
+const encrypt = async (
+  data: string | File,
+  password: string,
+): Promise<Blob> => {
+  let arrayBuffer: ArrayBuffer;
+  if (typeof data === "string") {
+    arrayBuffer = new TextEncoder().encode(data).buffer;
+  } else if (data instanceof File) {
+    arrayBuffer = await data.arrayBuffer();
+  } else {
+    throw new Error("Unsupported data type");
+  }
+  return encryptData(arrayBuffer, password);
+};
+
+const encryptData = async (
+  data: ArrayBuffer,
+  password: string,
+): Promise<Blob> => {
+  const encoder = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const baseKey = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(password),
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations: 100000,
+      hash: "SHA-256",
+    },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt"],
+  );
+  const encryptedBuffer = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    data,
+  );
+  const totalLength =
+    salt.byteLength + iv.byteLength + encryptedBuffer.byteLength;
+  const combined = new Uint8Array(totalLength);
+  combined.set(salt, 0);
+  combined.set(iv, salt.length);
+  combined.set(new Uint8Array(encryptedBuffer), salt.length + iv.length);
+  return new Blob([combined], { type: "application/octet-stream" });
+};
+
+const preparePassword = async (password: string): Promise<ArrayBuffer> => {
+  const passwordPayload = await preparePasswordPayload(password);
+  const publicKey = await importPublicKey();
+  return crypto.subtle.encrypt(
+    {
+      name: "RSA-OAEP",
+    },
+    publicKey,
+    new TextEncoder().encode(JSON.stringify(passwordPayload)),
+  );
+};
+
+const preparePasswordPayload = async (
+  password: string,
+): Promise<PasswordPayload> => {
+  const encoded = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const timestamp = Math.floor(Date.now() / 1000);
+  const payload = {
+    hash: hashArray,
+    timestamp,
+  };
+  return payload;
+};
+
+const importPublicKey = async (): Promise<CryptoKey> => {
+  const pemKey = await fetch("/api/publickey").then((res) => res.text());
+  const pemHeader = "-----BEGIN PUBLIC KEY-----";
+  const pemFooter = "-----END PUBLIC KEY-----";
+  const pem = pemKey
+    .replace(pemHeader, "")
+    .replace(pemFooter, "")
+    .replace(/\n/g, "");
+  const binaryDer = Uint8Array.from(atob(pem), (c) => c.charCodeAt(0));
+  return crypto.subtle.importKey(
+    "spki",
+    binaryDer.buffer,
+    { name: "RSA-OAEP", hash: "SHA-256" },
+    false,
+    ["encrypt"],
+  );
 };
