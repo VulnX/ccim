@@ -26,7 +26,7 @@ async fn test_update() {
     .to_string();
     let info = json!({
         "passwd": ccim_server::util::encrypt(passwd_hash.into()).await,
-        "new_text": "BBBB",
+        "new_text": "BBBB".as_bytes().to_vec(),
     });
     let info = Part::text(info.to_string());
     let form = MultipartForm::new().add_part("info", info);
@@ -38,7 +38,7 @@ async fn test_update() {
 
     let body = server.get("/api/clipboards").await.text();
     let clipboards = serde_json::from_str::<Vec<GetClipboardsResponse>>(&body).unwrap();
-    assert_eq!(clipboards[0].text, "BBBB");
+    assert_eq!(clipboards[0].text, "BBBB".as_bytes().to_vec());
 }
 
 #[tokio::test]
@@ -97,7 +97,7 @@ async fn test_non_existing() {
     .to_string();
     let info = json!({
         "passwd": ccim_server::util::encrypt(passwd_hash.into()).await,
-        "new_text": "BBBB",
+        "new_text": "BBBB".as_bytes().to_vec(),
     });
     let info = Part::text(info.to_string());
     let form = MultipartForm::new().add_part("info", info);
@@ -125,7 +125,7 @@ async fn test_invalid_passwd() {
     .to_string();
     let info = json!({
         "passwd": ccim_server::util::encrypt(passwd_hash.into()).await,
-        "new_text": "BBBB",
+        "new_text": "BBBB".as_bytes().to_vec(),
     });
     let info = Part::text(info.to_string());
     let file = Part::bytes("new contents".as_bytes().to_vec()).file_name("new");

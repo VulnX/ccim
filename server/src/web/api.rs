@@ -179,7 +179,7 @@ async fn list_clipboards(
     let clipboards = db_controller.get_clipboards().await?;
     let mut res: Vec<models::GetClipboardsResponse> = Vec::new();
     for clipboard in clipboards {
-        let text = tokio::fs::read_to_string(util::get_files_dir().join(clipboard.text_file_id))
+        let text = tokio::fs::read(util::get_files_dir().join(clipboard.text_file_id))
             .await
             .map_err(|e| Error::Unhandled(e.into()))?;
 
@@ -259,7 +259,7 @@ async fn update_clipboard(
             .open(file_path)
             .await
             .unwrap();
-        file.write_all(text_content.as_bytes()).await.unwrap();
+        file.write_all(&text_content).await.unwrap();
         file.flush().await.unwrap();
     }
 

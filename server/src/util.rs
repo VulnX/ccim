@@ -1,7 +1,8 @@
 use chrono::Utc;
 use rand::rngs::OsRng;
 use rsa::{
-    pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey, EncodeRsaPrivateKey, EncodeRsaPublicKey},
+    pkcs1::{DecodeRsaPrivateKey, EncodeRsaPrivateKey},
+    pkcs8::{DecodePublicKey, EncodePublicKey},
     Oaep, RsaPrivateKey, RsaPublicKey,
 };
 use sha2::Sha256;
@@ -69,7 +70,7 @@ pub async fn generate_key_pair() -> Result<()> {
         .to_pkcs1_pem(rsa::pkcs1::LineEnding::LF)
         .map_err(|e| Error::Unhandled(e.into()))?;
     let public_key = public_key
-        .to_pkcs1_pem(rsa::pkcs1::LineEnding::LF)
+        .to_public_key_pem(rsa::pkcs1::LineEnding::LF)
         .map_err(|e| Error::Unhandled(e.into()))?;
     tokio::fs::write(get_data_dir().join("private.pem"), private_key)
         .await
@@ -101,7 +102,7 @@ pub async fn encrypt(data: Vec<u8>) -> Vec<u8> {
     let public_key_pem = tokio::fs::read_to_string(PathBuf::new().join("data").join("public.pem"))
         .await
         .unwrap();
-    let public_key = RsaPublicKey::from_pkcs1_pem(&public_key_pem).unwrap();
+    let public_key = RsaPublicKey::from_public_key_pem(&public_key_pem).unwrap();
     let padding = Oaep::new::<Sha256>();
     public_key.encrypt(&mut OsRng, padding, &data).unwrap()
 }

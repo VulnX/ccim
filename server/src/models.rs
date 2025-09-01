@@ -44,7 +44,7 @@ pub struct CreateClipboardPayload {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateClipboardInfoPayload {
-    pub new_text: Option<String>,
+    pub new_text: Option<Vec<u8>>,
     pub new_passwd: Option<Vec<u8>>,
     pub passwd: Option<Vec<u8>>,
 }
@@ -63,7 +63,7 @@ pub struct FullClipboardData {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct GetClipboardsResponse {
     pub name: String,
-    pub text: String,
+    pub text: Vec<u8>,
     pub file_map: HashMap<String, String>,
     pub is_encrypted: bool,
     pub expiry: u64,

@@ -46,7 +46,7 @@ async fn test_list() {
         },
     );
     assert_eq!(clipboards[1].name, "clip2");
-    assert_eq!(clipboards[1].text, CLIPBOARD_TEXT);
+    assert_eq!(clipboards[1].text, CLIPBOARD_TEXT.as_bytes().to_vec());
     assert_eq!(
         clipboards[1]
             .file_map
