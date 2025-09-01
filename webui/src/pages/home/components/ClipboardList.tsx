@@ -5,9 +5,9 @@ import React from "react";
 
 type GetClipboardResponse = {
   name: string;
-  text: string;
+  text: number[];
   file_map: { [key: string]: string };
-  isEncypted: boolean;
+  is_encrypted: boolean;
   expiry: number;
 };
 
@@ -34,13 +34,16 @@ const ClipboardList: React.FC = () => {
     const text = await response.text();
     const parsed: GetClipboardResponse[] = JSON.parse(text);
     const newClipboardEntries = parsed.map((clipboard, idx) => {
+      let decodedText = new TextDecoder().decode(
+        new Uint8Array(clipboard.text),
+      );
       return (
         <ClipboardEntry
           key={idx}
           name={clipboard.name}
-          text={clipboard.text}
+          text={decodedText}
           file_map={clipboard.file_map}
-          isEncypted={clipboard.isEncypted}
+          isEncypted={clipboard.is_encrypted}
           expiry={clipboard.expiry}
           reload={fetchAllClipboards}
         />
