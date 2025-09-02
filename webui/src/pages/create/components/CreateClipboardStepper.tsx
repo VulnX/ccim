@@ -4,51 +4,38 @@ import Step from "@mui/material/Step";
 import StepLabel from "@mui/material/StepLabel";
 import StepContent from "@mui/material/StepContent";
 import Button from "@mui/material/Button";
-import Typography from "@mui/material/Typography";
 import React from "react";
-import NameStep, { getRandomName } from "./steps/Name";
+import NameStep from "./steps/Name";
 import AddDataStep from "./steps/AddData";
-import { Paper } from "@mui/material";
-import SettingsStep from "./steps/Settings";
-import { createClipboard, type DialogDetails } from "./util";
-import CustomDialog from "./CustomDialog";
-import { useNavigate } from "react-router-dom";
 
 type CreateClipboardStepperProps = {
-  setProgress: React.Dispatch<React.SetStateAction<number | null>>;
+  name: string;
+  setName: React.Dispatch<React.SetStateAction<string>>;
+  text: string;
+  setText: React.Dispatch<React.SetStateAction<string>>;
+  fileList: File[];
+  setFileList: React.Dispatch<React.SetStateAction<File[]>>;
+  handleCreateClipboard: () => void;
+  activeStep: number;
+  setActiveStep: React.Dispatch<React.SetStateAction<number>>;
+  currentStepperTab: string;
+  setCurrentStepperTab: React.Dispatch<React.SetStateAction<string>>;
 };
 
 const CreateClipboardStepper: React.FC<CreateClipboardStepperProps> = ({
-  setProgress,
+  name,
+  setName,
+  text,
+  setText,
+  fileList,
+  setFileList,
+  handleCreateClipboard,
+  activeStep,
+  setActiveStep,
+  currentStepperTab,
+  setCurrentStepperTab
 }) => {
-  const nagivate = useNavigate();
-  const [activeStep, setActiveStep] = React.useState(2);
-  const [showDialog, setShowDialog] = React.useState(false);
-  const [dialogDetails, setDialogDetails] =
-    React.useState<DialogDetails | null>(null);
-
-  // Persistant state variables for each step data
-  const [name, setName] = React.useState(getRandomName());
-  const [text, setText] = React.useState<string>("");
-  const [fileList, setFileList] = React.useState<Array<File>>([]);
-  const [expiry, setExpiry] = React.useState(5 * 60);
-  const [isEncrypted, setIsEncrypted] = React.useState(false);
-  const [password, setPassword] = React.useState<string>("");
-
   const steps = [
-    {
-      label: "Settings",
-      component: (
-        <SettingsStep
-          expiry={expiry}
-          setExpiry={setExpiry}
-          isEncrypted={isEncrypted}
-          setIsEncrypted={setIsEncrypted}
-          password={password}
-          setPassword={setPassword}
-        />
-      ),
-    },
     {
       label: "Choose a name",
       component: <NameStep name={name} setName={setName} />,
@@ -61,6 +48,8 @@ const CreateClipboardStepper: React.FC<CreateClipboardStepperProps> = ({
           setText={setText}
           fileList={fileList}
           setFileList={setFileList}
+          currentTab={currentStepperTab}
+          setCurrentTab={setCurrentStepperTab}
         />
       ),
     },
@@ -70,19 +59,7 @@ const CreateClipboardStepper: React.FC<CreateClipboardStepperProps> = ({
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
     // All steps completed: Proceed to submit form
     if (index === steps.length - 1) {
-      setTimeout(async () => {
-        const dialogDetails = await createClipboard(
-          setProgress,
-          name,
-          text,
-          fileList,
-          expiry,
-          isEncrypted,
-          password,
-        );
-        setDialogDetails(dialogDetails);
-        setShowDialog(true);
-      }, 300);
+      handleCreateClipboard();
     }
   };
 
@@ -90,66 +67,37 @@ const CreateClipboardStepper: React.FC<CreateClipboardStepperProps> = ({
     setActiveStep((prevActiveStep) => prevActiveStep - 1);
   };
 
-  const closeDialog = () => {
-    setShowDialog(false);
-    nagivate(-1);
-  };
-
   return (
-    <React.Fragment>
-      <Paper
-        sx={{
-          marginY: 5,
-        }}
-      >
-        <Stepper
-          activeStep={activeStep}
-          orientation="vertical"
-          sx={{ marginX: 3, paddingY: 3 }}
-        >
-          {steps.map((step, index) => (
-            <Step key={step.label}>
-              <StepLabel
-                optional={
-                  index === 0 ? (
-                    <Typography variant="caption" fontStyle="italic">
-                      (Optional)
-                    </Typography>
-                  ) : null
-                }
+    <Stepper
+      activeStep={activeStep}
+      orientation="vertical"
+      sx={{ marginX: 3, paddingY: 3 }}
+    >
+      {steps.map((step, index) => (
+        <Step key={step.label}>
+          <StepLabel>{step.label}</StepLabel>
+          <StepContent>
+            {step.component}
+            <Box sx={{ mb: 2 }}>
+              <Button
+                variant="contained"
+                onClick={() => handleNext(index)}
+                sx={{ mt: 1, mr: 1 }}
               >
-                {step.label}
-              </StepLabel>
-              <StepContent>
-                {step.component}
-                <Box sx={{ mb: 2 }}>
-                  <Button
-                    variant="contained"
-                    onClick={() => handleNext(index)}
-                    sx={{ mt: 1, mr: 1 }}
-                  >
-                    {index === steps.length - 1 ? "Create" : "Next"}
-                  </Button>
-                  <Button
-                    disabled={index === 0}
-                    onClick={handleBack}
-                    sx={{ mt: 1, mr: 1 }}
-                  >
-                    Back
-                  </Button>
-                </Box>
-              </StepContent>
-            </Step>
-          ))}
-        </Stepper>
-      </Paper>
-
-      <CustomDialog
-        showDialog={showDialog}
-        closeDialog={closeDialog}
-        dialogDetails={dialogDetails}
-      />
-    </React.Fragment>
+                {index === steps.length - 1 ? "Create" : "Next"}
+              </Button>
+              <Button
+                disabled={index === 0}
+                onClick={handleBack}
+                sx={{ mt: 1, mr: 1 }}
+              >
+                Back
+              </Button>
+            </Box>
+          </StepContent>
+        </Step>
+      ))}
+    </Stepper>
   );
 };
 

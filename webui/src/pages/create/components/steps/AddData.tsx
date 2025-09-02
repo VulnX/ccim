@@ -12,12 +12,15 @@ import {
 } from "@mui/material";
 import React from "react";
 import DeleteIcon from "@mui/icons-material/Delete";
+import { Article, Upload } from "@mui/icons-material";
 
 type AddDataProps = {
   text: string;
   setText: React.Dispatch<React.SetStateAction<string>>;
   fileList: File[];
   setFileList: React.Dispatch<React.SetStateAction<File[]>>;
+  currentTab: string;
+  setCurrentTab: React.Dispatch<React.SetStateAction<string>>;
 };
 
 const AddDataStep: React.FC<AddDataProps> = ({
@@ -25,8 +28,9 @@ const AddDataStep: React.FC<AddDataProps> = ({
   setText,
   fileList,
   setFileList,
+  currentTab,
+  setCurrentTab,
 }) => {
-  const [currentTab, setCurrentTab] = React.useState("text");
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: string) => {
@@ -42,7 +46,7 @@ const AddDataStep: React.FC<AddDataProps> = ({
     if (!selectedFiles || selectedFiles.length === 0) return;
 
     const existingFileKeys = new Set(
-      fileList.map((file) => file.name + file.size + file.lastModified),
+      fileList.map((file) => file.name + file.size + file.lastModified)
     );
     const newFiles: File[] = [];
 
@@ -74,8 +78,18 @@ const AddDataStep: React.FC<AddDataProps> = ({
   return (
     <>
       <Tabs value={currentTab} onChange={handleTabChange} variant="fullWidth">
-        <Tab value="text" label="Text" />
-        <Tab value="files" label="Files" />
+        <Tab
+          value="text"
+          label="Text"
+          icon={<Article fontSize="small" />}
+          iconPosition="start"
+        />
+        <Tab
+          value="files"
+          label="Files"
+          icon={<Upload fontSize="small" />}
+          iconPosition="start"
+        />
       </Tabs>
 
       <Box sx={{ marginTop: 2 }}>
