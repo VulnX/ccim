@@ -1,4 +1,4 @@
-import React from "react";
+import React, { type JSX } from "react";
 import {
   List,
   ListItemButton,
@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 import CreateOutlinedIcon from "@mui/icons-material/CreateOutlined";
 import { drawerWidth } from "./App";
+import { useNavigate } from "react-router-dom";
 
 type MyDrawerProps = {
   isMobile: boolean;
@@ -20,15 +21,125 @@ type MyDrawerProps = {
   handleDrawerToggle: () => void;
 };
 
+type GetClipboardResponse = {
+  name: string;
+  text: number[];
+  file_map: { [key: string]: string };
+  is_encrypted: boolean;
+  expiry: number;
+};
+
 const MyDrawer: React.FC<MyDrawerProps> = ({
   isMobile,
   mobileOpen,
-  handleDrawerToggle
+  handleDrawerToggle,
 }) => {
+  const nagivate = useNavigate();
+
+  const [clipboardList, setClipboardList] = React.useState<JSX.Element[]>([]);
+  const hasRun = React.useRef(false);
+
+  const fetchClipboards = async () => {
+    const response = await fetch("/api/clipboards");
+    if (response.status === 204) {
+      setClipboardList([]);
+      return;
+    }
+    if (response.status !== 200) {
+      console.error("Failed to get all clipboards");
+      return;
+    }
+    const text = await response.text();
+    const parsed: GetClipboardResponse[] = JSON.parse(text);
+    console.log("parsed:", parsed);
+    const newClipboardList = parsed.map((clipboard, idx) => {
+      return createClipboardListItem(clipboard, idx);
+    });
+    setClipboardList(newClipboardList);
+  };
+
+  const getRemainingTime = (expiry: number): string => {
+    const currentTimestamp = Date.now() / 1000;
+    const difference = Math.max(0, expiry - currentTimestamp);
+    const totalMinutes = Math.ceil(difference / 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours === 0 && minutes === 0) {
+      return "expired";
+    }
+    if (hours === 0) {
+      return `${minutes}m`;
+    }
+    if (minutes === 0) {
+      return `${hours}h`;
+    } else {
+      return `${hours}h ${minutes}m`;
+    }
+  };
+
+  function createClipboardListItem(
+    clipboard: GetClipboardResponse,
+    idx: number,
+  ) {
+    return (
+      <ListItemButton
+        key={idx}
+        sx={{
+          borderRadius: 2,
+          border: 1,
+          borderColor: "divider",
+          marginBottom: 1,
+          width: "100%",
+          display: "block",
+        }}
+      >
+        <Stack>
+          <Tooltip title={clipboard.name} placement="top" arrow>
+            <span
+              style={{
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {clipboard.name}
+            </span>
+          </Tooltip>
+          <Stack direction="row" gap={0.5}>
+            <Chip
+              variant="outlined"
+              label={clipboard.is_encrypted ? "Secure" : "Public"}
+              size="small"
+              color={clipboard.is_encrypted ? "error" : "primary"}
+            />
+            <Tooltip
+              title={`expires in ${getRemainingTime(clipboard.expiry)}`}
+              arrow
+            >
+              <Chip
+                variant="outlined"
+                label={getRemainingTime(clipboard.expiry)}
+                size="small"
+                color="default"
+              />
+            </Tooltip>
+          </Stack>
+        </Stack>
+      </ListItemButton>
+    );
+  }
+
+  React.useEffect(() => {
+    if (!hasRun.current) {
+      hasRun.current = true;
+      fetchClipboards();
+    }
+  }, []);
+
   const drawerContent = (
     <Stack
       direction="column"
-      sx={{ height: "100%", padding: 1, backgroundColor: "#f9f9f9" }}
+      sx={{ height: "100%", padding: 1, backgroundColor: "#fff" }}
     >
       <TextField
         variant="outlined"
@@ -54,6 +165,9 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
             boxShadow: "none",
           },
         }}
+        onClick={() => {
+          (nagivate("/create"), handleDrawerToggle());
+        }}
       >
         New Clipboard
       </Button>
@@ -69,55 +183,7 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
         }}
       >
         <Divider sx={{ marginBottom: 2 }} />
-        <List>
-          {[
-            "clipboard 1",
-            "clipboard 2",
-            "clipboard 3 and something else as well",
-          ].map((text) => (
-            <ListItemButton
-              key={text}
-              sx={{
-                borderRadius: 2,
-                border: 1,
-                borderColor: "divider",
-                marginBottom: 1,
-                width: "100%",
-                display: "block",
-              }}
-            >
-              <Stack>
-                <Tooltip title={text} placement="top" arrow>
-                  <span
-                    style={{
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {text}
-                  </span>
-                </Tooltip>
-                <Stack direction="row" gap={0.5}>
-                  <Chip
-                    variant="outlined"
-                    label="Public"
-                    size="small"
-                    color="primary"
-                  />
-                  <Tooltip title={`expires in 2h 5m`} arrow>
-                    <Chip
-                      variant="outlined"
-                      label="2h 5m"
-                      size="small"
-                      color="default"
-                    />
-                  </Tooltip>
-                </Stack>
-              </Stack>
-            </ListItemButton>
-          ))}
-        </List>
+        <List>{clipboardList}</List>
       </Box>
     </Stack>
   );

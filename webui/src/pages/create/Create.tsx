@@ -1,5 +1,4 @@
 import React from "react";
-import Navbar from "./components/Navbar";
 import CreateClipboardStepper from "./components/CreateClipboardStepper";
 import { Box, LinearProgress, Paper, Tab, Tabs } from "@mui/material";
 import ContentPasteIcon from "@mui/icons-material/ContentPaste";
@@ -8,10 +7,8 @@ import { getRandomName } from "./components/steps/Name";
 import SettingsStep from "./components/steps/Settings";
 import { createClipboard, type DialogDetails } from "./components/util";
 import CustomDialog from "./components/CustomDialog";
-import { useNavigate } from "react-router-dom";
 
 const Create: React.FC = () => {
-  const nagivate = useNavigate();
   const [progress, setProgress] = React.useState<null | number>(null);
   const [currentTab, setCurrentTab] = React.useState("clipboard");
   const [showDialog, setShowDialog] = React.useState(false);
@@ -53,16 +50,11 @@ const Create: React.FC = () => {
 
   const closeDialog = (): void => {
     setShowDialog(false);
-    if (dialogDetails?.success) {
-      nagivate(-1);
-    } else {
-      setActiveStep(1);
-    }
+    setActiveStep(1);
   };
 
   return (
     <>
-      <Navbar />
       <React.Fragment>
         <Box
           sx={{

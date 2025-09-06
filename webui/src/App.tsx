@@ -1,14 +1,10 @@
 import React from "react";
-import {
-  Toolbar,
-  Typography,
-  CssBaseline,
-  useMediaQuery,
-  Box,
-} from "@mui/material";
+import { Toolbar, CssBaseline, useMediaQuery, Box } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import MyDrawer from "./DrawerContent";
 import MyAppbar from "./MyAppbar";
+import { Route, Routes } from "react-router-dom";
+import Create from "./pages/create/Create";
 
 export const drawerWidth = 260;
 
@@ -48,7 +44,12 @@ const App = () => {
         }}
       >
         <Toolbar />
-        <Typography>MAIN CONTENT HERE</Typography>
+
+        {/* Pages */}
+        <Routes>
+          <Route path="/" element={<Create />} />
+          <Route path="/create" element={<Create />} />
+        </Routes>
       </Box>
     </Box>
   );
