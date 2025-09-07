@@ -13,9 +13,7 @@ import {
 } from "@mui/material";
 import CreateOutlinedIcon from "@mui/icons-material/CreateOutlined";
 import { drawerWidth } from "./App";
-import { useNavigate, type NavigateFunction } from "react-router-dom";
-import type { JSX } from "@emotion/react/jsx-runtime";
-import type { GetClipboardResponse } from "./util/types";
+import { useNavigate } from "react-router-dom";
 import { getRemainingTime } from "./util/helper";
 import { useClipboard } from "./context/ClipboardContext";
 
@@ -28,82 +26,7 @@ type MyDrawerProps = {
 const ClipboardList: React.FC = () => {
   const navigate = useNavigate();
   const hasRun = React.useRef(false);
-  const { clipboardList, setClipboardList } = useClipboard()!;
-  const [clipboardListElements, setClipboardListElements] = React.useState<
-    JSX.Element[]
-  >([]);
-
-  const fetchClipboards = async () => {
-    const response = await fetch("/api/clipboards");
-    if (response.status === 204) {
-      setClipboardList([]);
-      setClipboardListElements([]);
-      return;
-    }
-    if (response.status !== 200) {
-      console.error("Failed to get all clipboards");
-      return;
-    }
-    const text = await response.text();
-    const parsed: GetClipboardResponse[] = JSON.parse(text);
-    setClipboardList(parsed);
-  };
-
-  function createClipboardListItem(
-    clipboard: GetClipboardResponse,
-    idx: number,
-    navigate: NavigateFunction
-  ) {
-    return (
-      <ListItemButton
-        key={idx}
-        sx={{
-          borderRadius: 2,
-          border: 1,
-          borderColor: "divider",
-          marginBottom: 1,
-          width: "100%",
-          display: "block",
-        }}
-        onClick={() => {
-          navigate(`/clip/${clipboard.name}`);
-        }}
-      >
-        <Stack>
-          <Tooltip title={clipboard.name} placement="top" arrow>
-            <span
-              style={{
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {clipboard.name}
-            </span>
-          </Tooltip>
-          <Stack direction="row" gap={0.5}>
-            <Chip
-              variant="outlined"
-              label={clipboard.is_encrypted ? "Secure" : "Public"}
-              size="small"
-              color={clipboard.is_encrypted ? "error" : "primary"}
-            />
-            <Tooltip
-              title={`expires in ${getRemainingTime(clipboard.expiry)}`}
-              arrow
-            >
-              <Chip
-                variant="outlined"
-                label={getRemainingTime(clipboard.expiry)}
-                size="small"
-                color="default"
-              />
-            </Tooltip>
-          </Stack>
-        </Stack>
-      </ListItemButton>
-    );
-  }
+  const { clipboardList, fetchClipboards } = useClipboard()!;
 
   React.useEffect(() => {
     if (!hasRun.current) {
@@ -112,14 +35,61 @@ const ClipboardList: React.FC = () => {
     }
   }, []);
 
-  React.useEffect(() => {
-    const newClipboardList = clipboardList.map((clipboard, idx) => {
-      return createClipboardListItem(clipboard, idx, navigate);
-    });
-    setClipboardListElements(newClipboardList);
-  }, [clipboardList]);
-
-  return <List>{clipboardListElements}</List>;
+  return (
+    <List>
+      {clipboardList.map((clipboard, idx) => {
+        return (
+          <ListItemButton
+            key={idx}
+            sx={{
+              borderRadius: 2,
+              border: 1,
+              borderColor: "divider",
+              marginBottom: 1,
+              width: "100%",
+              display: "block",
+            }}
+            onClick={() => {
+              navigate(`/clip/${clipboard.name}`);
+            }}
+          >
+            <Stack>
+              <Tooltip title={clipboard.name} placement="top" arrow>
+                <span
+                  style={{
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {clipboard.name}
+                </span>
+              </Tooltip>
+              <Stack direction="row" gap={0.5}>
+                <Chip
+                  variant="outlined"
+                  label={clipboard.is_encrypted ? "Secure" : "Public"}
+                  size="small"
+                  color={clipboard.is_encrypted ? "error" : "primary"}
+                />
+                <Tooltip
+                  title={`expires in ${getRemainingTime(clipboard.expiry)}`}
+                  arrow
+                >
+                  <Chip
+                    variant="outlined"
+                    label={getRemainingTime(clipboard.expiry)}
+                    size="small"
+                    color="default"
+                  />
+                </Tooltip>
+              </Stack>
+            </Stack>
+          </ListItemButton>
+        );
+      })}
+    </List>
+  );
 };
 
 const MyDrawer: React.FC<MyDrawerProps> = ({
@@ -159,7 +129,7 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
           },
         }}
         onClick={() => {
-          navigate("/create"), handleDrawerToggle();
+          (navigate("/create"), handleDrawerToggle());
         }}
       >
         New Clipboard

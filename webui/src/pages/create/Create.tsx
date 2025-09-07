@@ -7,6 +7,7 @@ import { getRandomName } from "./components/steps/Name";
 import SettingsStep from "./components/steps/Settings";
 import { createClipboard, type DialogDetails } from "./components/util";
 import CustomDialog from "./components/CustomDialog";
+import { useClipboard } from "../../context/ClipboardContext";
 
 const Create: React.FC = () => {
   const [progress, setProgress] = React.useState<null | number>(null);
@@ -24,6 +25,7 @@ const Create: React.FC = () => {
     React.useState<DialogDetails | null>(null);
   const [activeStep, setActiveStep] = React.useState(1);
   const [currentStepperTab, setCurrentStepperTab] = React.useState("text");
+  const { fetchClipboards } = useClipboard()!;
 
   const handleTabChange = (
     _event: React.SyntheticEvent,
@@ -51,6 +53,7 @@ const Create: React.FC = () => {
   const closeDialog = (): void => {
     setShowDialog(false);
     setActiveStep(1);
+    fetchClipboards();
   };
 
   return (

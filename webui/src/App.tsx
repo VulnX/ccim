@@ -51,10 +51,7 @@ const App = () => {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/create" element={<Create />} />
-          <Route
-            path="/clip/:clipboardName"
-            element={<Clip />}
-          />
+          <Route path="/clip/:clipboardName" element={<Clip />} />
         </Routes>
       </Box>
     </Box>
