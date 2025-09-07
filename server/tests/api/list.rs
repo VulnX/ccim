@@ -3,7 +3,6 @@ use axum::http::StatusCode;
 use ccim_server::models::GetClipboardsResponse;
 use chrono::Utc;
 use serial_test::serial;
-use std::collections::{HashMap, HashSet};
 
 #[tokio::test]
 #[serial]
@@ -40,7 +39,7 @@ async fn test_list() {
         GetClipboardsResponse {
             name: "clip1".into(),
             text: "".into(),
-            file_map: HashMap::new(),
+            files: Vec::new(),
             is_encrypted: true,
             expiry: Utc::now().timestamp() as u64 + 300
         },
@@ -49,14 +48,14 @@ async fn test_list() {
     assert_eq!(clipboards[1].text, CLIPBOARD_TEXT.as_bytes().to_vec());
     assert_eq!(
         clipboards[1]
-            .file_map
-            .keys()
-            .cloned()
-            .collect::<HashSet<_>>(),
+            .files
+            .iter()
+            .map(|file| file.name.clone())
+            .collect::<Vec<String>>(),
         ["file1", "file2"]
             .iter()
             .map(|s| s.to_string())
-            .collect::<HashSet<_>>()
+            .collect::<Vec<String>>()
     );
     assert_eq!(clipboards[1].is_encrypted, false);
 }

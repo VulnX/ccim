@@ -183,10 +183,19 @@ async fn list_clipboards(
             .await
             .map_err(|e| Error::Unhandled(e.into()))?;
 
+        let mut files: Vec<models::FileInfo> = Vec::new();
+        for (name, id) in clipboard.file_map {
+            let metadata = tokio::fs::metadata(util::get_files_dir().join(&id))
+                .await
+                .map_err(|e| Error::Unhandled(e.into()))?;
+            let size = metadata.len();
+            files.push(models::FileInfo { name, id, size });
+        }
+
         res.push(models::GetClipboardsResponse {
             name: clipboard.name.clone(),
             text,
-            file_map: clipboard.file_map.clone(),
+            files,
             is_encrypted: clipboard.is_encrypted,
             expiry: clipboard.expiry,
         });

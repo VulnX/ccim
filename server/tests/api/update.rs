@@ -62,10 +62,10 @@ async fn test_update_files() {
     let body = server.get("/api/clipboards").await.text();
     let res = serde_json::from_str::<Vec<GetClipboardsResponse>>(&body).unwrap();
     let file1_id = res[0]
-        .file_map
+        .files
         .iter()
-        .find(|(name, _id)| *name == "file1")
-        .map(|(_name, id)| id)
+        .find(|file| file.name == "file1")
+        .map(|file| file.id.clone())
         .unwrap();
     let files = vec![file1_id];
     let files = serde_json::to_string(&files).unwrap();
@@ -82,8 +82,9 @@ async fn test_update_files() {
 
     let body = server.get("/api/clipboards").await.text();
     let clipboards = serde_json::from_str::<Vec<GetClipboardsResponse>>(&body).unwrap();
-    assert!(!clipboards[0].file_map.contains_key("file1"));
-    assert!(clipboards[0].file_map.contains_key("file3"));
+
+    assert!(!clipboards[0].files.iter().any(|file| file.name == "file1"));
+    assert!(clipboards[0].files.iter().any(|file| file.name == "file3"));
 }
 
 #[tokio::test]
