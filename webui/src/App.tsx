@@ -5,6 +5,8 @@ import MyDrawer from "./DrawerContent";
 import MyAppbar from "./MyAppbar";
 import { Route, Routes } from "react-router-dom";
 import Create from "./pages/create/Create";
+import Clip from "./pages/clip/Clip";
+import type { GetClipboardResponse } from "./util/types";
 
 export const drawerWidth = 260;
 
@@ -18,6 +20,10 @@ const App = () => {
     setMobileOpen(!mobileOpen);
   };
 
+  const [clipboardList, setClipboardList] = React.useState<
+    GetClipboardResponse[]
+  >([]);
+
   return (
     <Box sx={{ display: "flex" }}>
       <CssBaseline />
@@ -28,6 +34,8 @@ const App = () => {
         isMobile={isMobile}
         mobileOpen={mobileOpen}
         handleDrawerToggle={handleDrawerToggle}
+        clipboardList={clipboardList}
+        setClipboardList={setClipboardList}
       />
 
       {/* Main content */}
@@ -49,6 +57,10 @@ const App = () => {
         <Routes>
           <Route path="/" element={<Create />} />
           <Route path="/create" element={<Create />} />
+          <Route
+            path="/clip/:clipboardName"
+            element={<Clip clipboardList={clipboardList} />}
+          />
         </Routes>
       </Box>
     </Box>

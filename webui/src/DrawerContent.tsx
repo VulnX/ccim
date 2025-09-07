@@ -1,4 +1,4 @@
-import React, { type JSX } from "react";
+import React from "react";
 import {
   List,
   ListItemButton,
@@ -13,36 +13,42 @@ import {
 } from "@mui/material";
 import CreateOutlinedIcon from "@mui/icons-material/CreateOutlined";
 import { drawerWidth } from "./App";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, type NavigateFunction } from "react-router-dom";
+import type { JSX } from "@emotion/react/jsx-runtime";
+import type { GetClipboardResponse } from "./util/types";
 
 type MyDrawerProps = {
   isMobile: boolean;
   mobileOpen: boolean;
   handleDrawerToggle: () => void;
+  clipboardList: GetClipboardResponse[];
+  setClipboardList: React.Dispatch<
+    React.SetStateAction<GetClipboardResponse[]>
+  >;
 };
 
-type GetClipboardResponse = {
-  name: string;
-  text: number[];
-  file_map: { [key: string]: string };
-  is_encrypted: boolean;
-  expiry: number;
+type ClipboardListProps = {
+  clipboardList: GetClipboardResponse[];
+  setClipboardList: React.Dispatch<
+    React.SetStateAction<GetClipboardResponse[]>
+  >;
 };
 
-const MyDrawer: React.FC<MyDrawerProps> = ({
-  isMobile,
-  mobileOpen,
-  handleDrawerToggle,
+const ClipboardList: React.FC<ClipboardListProps> = ({
+  clipboardList,
+  setClipboardList,
 }) => {
-  const nagivate = useNavigate();
-
-  const [clipboardList, setClipboardList] = React.useState<JSX.Element[]>([]);
+  const navigate = useNavigate();
   const hasRun = React.useRef(false);
+  const [clipboardListElements, setClipboardListElements] = React.useState<
+    JSX.Element[]
+  >([]);
 
   const fetchClipboards = async () => {
     const response = await fetch("/api/clipboards");
     if (response.status === 204) {
       setClipboardList([]);
+      setClipboardListElements([]);
       return;
     }
     if (response.status !== 200) {
@@ -51,11 +57,11 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
     }
     const text = await response.text();
     const parsed: GetClipboardResponse[] = JSON.parse(text);
-    console.log("parsed:", parsed);
+    setClipboardList(parsed);
     const newClipboardList = parsed.map((clipboard, idx) => {
-      return createClipboardListItem(clipboard, idx);
+      return createClipboardListItem(clipboard, idx, navigate);
     });
-    setClipboardList(newClipboardList);
+    setClipboardListElements(newClipboardList);
   };
 
   const getRemainingTime = (expiry: number): string => {
@@ -65,7 +71,9 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     if (hours === 0 && minutes === 0) {
-      return "expired";
+      (async () => {
+        fetchClipboards();
+      })();
     }
     if (hours === 0) {
       return `${minutes}m`;
@@ -80,6 +88,7 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
   function createClipboardListItem(
     clipboard: GetClipboardResponse,
     idx: number,
+    navigate: NavigateFunction
   ) {
     return (
       <ListItemButton
@@ -92,6 +101,7 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
           width: "100%",
           display: "block",
         }}
+        onClick={() => navigate(`/clip/${clipboard.name}`)}
       >
         <Stack>
           <Tooltip title={clipboard.name} placement="top" arrow>
@@ -136,6 +146,18 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
     }
   }, []);
 
+  return <List>{clipboardListElements}</List>;
+};
+
+const MyDrawer: React.FC<MyDrawerProps> = ({
+  isMobile,
+  mobileOpen,
+  handleDrawerToggle,
+  clipboardList,
+  setClipboardList,
+}) => {
+  const navigate = useNavigate();
+
   const drawerContent = (
     <Stack
       direction="column"
@@ -166,7 +188,7 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
           },
         }}
         onClick={() => {
-          (nagivate("/create"), handleDrawerToggle());
+          navigate("/create"), handleDrawerToggle();
         }}
       >
         New Clipboard
@@ -183,7 +205,10 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
         }}
       >
         <Divider sx={{ marginBottom: 2 }} />
-        <List>{clipboardList}</List>
+        <ClipboardList
+          clipboardList={clipboardList}
+          setClipboardList={setClipboardList}
+        />
       </Box>
     </Stack>
   );
