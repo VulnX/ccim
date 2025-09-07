@@ -1,7 +1,18 @@
-import { Box, Button, Divider, Paper, Stack, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  Divider,
+  List,
+  ListItemButton,
+  ListItemText,
+  Paper,
+  Stack,
+  Typography,
+} from "@mui/material";
 import type React from "react";
 import { useParams } from "react-router-dom";
 import type { GetClipboardResponse } from "../../util/types";
+import { formatBytes } from "../../util/helper";
 
 type ClipProps = {
   clipboardList: GetClipboardResponse[];
@@ -85,26 +96,30 @@ const Clip: React.FC<ClipProps> = ({ clipboardList }) => {
       <Typography variant="h5" marginTop={2} marginBottom={-1}>
         Files
       </Typography>
-      <Stack gap={2} marginTop={2}>
-        {Object.entries(clipboard.file_map).map(([fileName, fileId]) => {
+      <List>
+        {Object.entries(clipboard.files).map(([_s, file]) => {
           return (
-            <Button
-              key={fileId}
-              fullWidth
-              onClick={() => downloadFile(fileName, fileId)}
+            <ListItemButton
+              key={file.id}
               sx={{
-                justifyContent: "start",
-                textTransform: "none",
-                textAlign: "left",
-                wordBreak: "break-word",
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 1,
+                marginY: 1,
               }}
-              variant="outlined"
+              onClick={() => downloadFile(file.name, file.id)}
             >
-              {fileName}
-            </Button>
+              <ListItemText
+                primary={file.name}
+                secondary={formatBytes(file.size)}
+                sx={{
+                  wordBreak: "break-all",
+                }}
+              />
+            </ListItemButton>
           );
         })}
-      </Stack>
+      </List>
     </Paper>
   );
 };

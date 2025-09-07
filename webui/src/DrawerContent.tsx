@@ -35,7 +35,7 @@ type ClipboardListProps = {
 };
 
 const ClipboardList: React.FC<ClipboardListProps> = ({
-  clipboardList,
+  clipboardList: _clipboardList,
   setClipboardList,
 }) => {
   const navigate = useNavigate();
@@ -88,7 +88,7 @@ const ClipboardList: React.FC<ClipboardListProps> = ({
   function createClipboardListItem(
     clipboard: GetClipboardResponse,
     idx: number,
-    navigate: NavigateFunction
+    navigate: NavigateFunction,
   ) {
     return (
       <ListItemButton
@@ -188,7 +188,7 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
           },
         }}
         onClick={() => {
-          navigate("/create"), handleDrawerToggle();
+          (navigate("/create"), handleDrawerToggle());
         }}
       >
         New Clipboard

@@ -1,7 +1,13 @@
 export type GetClipboardResponse = {
   name: string;
   text: number[];
-  file_map: { [key: string]: string };
+  files: FileData[];
   is_encrypted: boolean;
   expiry: number;
+};
+
+export type FileData = {
+  name: string;
+  id: string;
+  size: number;
 };
