@@ -18,7 +18,7 @@ async fn test_download_file() {
         .assert_status(StatusCode::CREATED);
     let body = server.get("/api/clipboards").await.text();
     let res = serde_json::from_str::<Vec<GetClipboardsResponse>>(&body).unwrap();
-    let file_id = &res[0].file_map[file_name];
+    let file_id = &res[0].files[0].id;
     let text = server
         .get(&format!("/api/clipboards/file/{}", file_id))
         .await

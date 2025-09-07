@@ -64,9 +64,16 @@ pub struct FullClipboardData {
 pub struct GetClipboardsResponse {
     pub name: String,
     pub text: Vec<u8>,
-    pub file_map: HashMap<String, String>,
+    pub files: Vec<FileInfo>,
     pub is_encrypted: bool,
     pub expiry: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct FileInfo {
+    pub name: String,
+    pub id: String,
+    pub size: u64,
 }
 
 #[derive(Debug)]
