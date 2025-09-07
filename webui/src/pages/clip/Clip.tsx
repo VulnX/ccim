@@ -11,15 +11,12 @@ import {
 } from "@mui/material";
 import type React from "react";
 import { useParams } from "react-router-dom";
-import type { GetClipboardResponse } from "../../util/types";
 import { formatBytes } from "../../util/helper";
+import { useClipboard } from "../../context/ClipboardContext";
 
-type ClipProps = {
-  clipboardList: GetClipboardResponse[];
-};
-
-const Clip: React.FC<ClipProps> = ({ clipboardList }) => {
+const Clip: React.FC = () => {
   const { clipboardName } = useParams();
+  const { clipboardList } = useClipboard()!;
   const clipboard = clipboardList.find((clip) => clip.name === clipboardName);
   if (!clipboard) {
     return <h1>NOT FOUND</h1>;

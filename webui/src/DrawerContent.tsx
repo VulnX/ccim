@@ -16,30 +16,19 @@ import { drawerWidth } from "./App";
 import { useNavigate, type NavigateFunction } from "react-router-dom";
 import type { JSX } from "@emotion/react/jsx-runtime";
 import type { GetClipboardResponse } from "./util/types";
+import { getRemainingTime } from "./util/helper";
+import { useClipboard } from "./context/ClipboardContext";
 
 type MyDrawerProps = {
   isMobile: boolean;
   mobileOpen: boolean;
   handleDrawerToggle: () => void;
-  clipboardList: GetClipboardResponse[];
-  setClipboardList: React.Dispatch<
-    React.SetStateAction<GetClipboardResponse[]>
-  >;
 };
 
-type ClipboardListProps = {
-  clipboardList: GetClipboardResponse[];
-  setClipboardList: React.Dispatch<
-    React.SetStateAction<GetClipboardResponse[]>
-  >;
-};
-
-const ClipboardList: React.FC<ClipboardListProps> = ({
-  clipboardList: _clipboardList,
-  setClipboardList,
-}) => {
+const ClipboardList: React.FC = () => {
   const navigate = useNavigate();
   const hasRun = React.useRef(false);
+  const { clipboardList, setClipboardList } = useClipboard()!;
   const [clipboardListElements, setClipboardListElements] = React.useState<
     JSX.Element[]
   >([]);
@@ -58,37 +47,12 @@ const ClipboardList: React.FC<ClipboardListProps> = ({
     const text = await response.text();
     const parsed: GetClipboardResponse[] = JSON.parse(text);
     setClipboardList(parsed);
-    const newClipboardList = parsed.map((clipboard, idx) => {
-      return createClipboardListItem(clipboard, idx, navigate);
-    });
-    setClipboardListElements(newClipboardList);
-  };
-
-  const getRemainingTime = (expiry: number): string => {
-    const currentTimestamp = Date.now() / 1000;
-    const difference = Math.max(0, expiry - currentTimestamp);
-    const totalMinutes = Math.ceil(difference / 60);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    if (hours === 0 && minutes === 0) {
-      (async () => {
-        fetchClipboards();
-      })();
-    }
-    if (hours === 0) {
-      return `${minutes}m`;
-    }
-    if (minutes === 0) {
-      return `${hours}h`;
-    } else {
-      return `${hours}h ${minutes}m`;
-    }
   };
 
   function createClipboardListItem(
     clipboard: GetClipboardResponse,
     idx: number,
-    navigate: NavigateFunction,
+    navigate: NavigateFunction
   ) {
     return (
       <ListItemButton
@@ -101,7 +65,9 @@ const ClipboardList: React.FC<ClipboardListProps> = ({
           width: "100%",
           display: "block",
         }}
-        onClick={() => navigate(`/clip/${clipboard.name}`)}
+        onClick={() => {
+          navigate(`/clip/${clipboard.name}`);
+        }}
       >
         <Stack>
           <Tooltip title={clipboard.name} placement="top" arrow>
@@ -146,6 +112,13 @@ const ClipboardList: React.FC<ClipboardListProps> = ({
     }
   }, []);
 
+  React.useEffect(() => {
+    const newClipboardList = clipboardList.map((clipboard, idx) => {
+      return createClipboardListItem(clipboard, idx, navigate);
+    });
+    setClipboardListElements(newClipboardList);
+  }, [clipboardList]);
+
   return <List>{clipboardListElements}</List>;
 };
 
@@ -153,8 +126,6 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
   isMobile,
   mobileOpen,
   handleDrawerToggle,
-  clipboardList,
-  setClipboardList,
 }) => {
   const navigate = useNavigate();
 
@@ -188,7 +159,7 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
           },
         }}
         onClick={() => {
-          (navigate("/create"), handleDrawerToggle());
+          navigate("/create"), handleDrawerToggle();
         }}
       >
         New Clipboard
@@ -205,10 +176,7 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
         }}
       >
         <Divider sx={{ marginBottom: 2 }} />
-        <ClipboardList
-          clipboardList={clipboardList}
-          setClipboardList={setClipboardList}
-        />
+        <ClipboardList />
       </Box>
     </Stack>
   );

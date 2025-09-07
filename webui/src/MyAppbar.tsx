@@ -2,6 +2,7 @@ import React from "react";
 import { AppBar, Toolbar, IconButton, Box } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import { drawerWidth } from "./App";
+import { useNavigate } from "react-router-dom";
 
 type MyAppbarProps = {
   isMobile: boolean;
@@ -12,6 +13,8 @@ const MyAppbar: React.FC<MyAppbarProps> = ({
   isMobile,
   handleDrawerToggle,
 }) => {
+  const navigate = useNavigate();
+
   return (
     <AppBar
       position="fixed"
@@ -49,7 +52,9 @@ const MyAppbar: React.FC<MyAppbarProps> = ({
               xs: "50px",
               md: "80px",
             },
+            cursor: "pointer",
           }}
+          onClick={() => navigate("/")}
         />
       </Toolbar>
     </AppBar>
