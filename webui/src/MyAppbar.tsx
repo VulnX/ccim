@@ -3,6 +3,7 @@ import { AppBar, Toolbar, IconButton, Box } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import { drawerWidth } from "./App";
 import { useNavigate } from "react-router-dom";
+import logo from '/assets/logo/logo.svg';
 
 type MyAppbarProps = {
   isMobile: boolean;
@@ -45,7 +46,7 @@ const MyAppbar: React.FC<MyAppbarProps> = ({
         )}
         <Box
           component="img"
-          src="/assets/logo/logo.svg"
+          src={logo}
           alt="CCIM Logo"
           sx={{
             height: {
