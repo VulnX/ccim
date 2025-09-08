@@ -10,13 +10,14 @@ import {
   Typography,
 } from "@mui/material";
 import type React from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { formatBytes } from "../../util/helper";
 import { useClipboard } from "../../context/ClipboardContext";
 
 const Clip: React.FC = () => {
+  const navigate = useNavigate();
   const { clipboardName } = useParams();
-  const { clipboardList } = useClipboard()!;
+  const { clipboardList, fetchClipboards } = useClipboard()!;
   const clipboard = clipboardList.find((clip) => clip.name === clipboardName);
   if (!clipboard) {
     return <h1>NOT FOUND</h1>;
@@ -30,6 +31,19 @@ const Clip: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const deleteClipboard = async () => {
+    const res = await fetch(`/api/clipboards/${clipboard.name}`, {
+      method: "DELETE",
+      body: new FormData(),
+    });
+    if (res.status === 204) {
+      await fetchClipboards();
+      navigate(-1);
+    } else {
+      console.error("Error occured while deleting this clipboard:", res);
+    }
   };
 
   return (
@@ -53,6 +67,7 @@ const Clip: React.FC = () => {
           sx={{
             alignSelf: "flex-end",
           }}
+          onClick={deleteClipboard}
         >
           Delete
         </Button>
