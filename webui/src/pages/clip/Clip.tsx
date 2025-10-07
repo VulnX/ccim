@@ -9,7 +9,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import type React from "react";
+import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { formatBytes } from "../../util/helper";
 import { useClipboard } from "../../context/ClipboardContext";
