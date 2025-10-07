@@ -13,6 +13,7 @@ import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { formatBytes } from "../../util/helper";
 import { useClipboard } from "../../context/ClipboardContext";
+import { decryptText } from "../../util/crypto";
 
 const Clip: React.FC = () => {
   const navigate = useNavigate();
@@ -22,7 +23,9 @@ const Clip: React.FC = () => {
   if (!clipboard) {
     return <h1>NOT FOUND</h1>;
   }
-  const text = String.fromCharCode(...clipboard.text);
+  const hasRun = React.useRef(false);
+  const [name, setName] = React.useState<string | undefined>(undefined);
+  const [text, setText] = React.useState<string | undefined>(undefined);
 
   const downloadFile = (fileName: string, fileId: string) => {
     const link = document.createElement("a");
@@ -45,6 +48,39 @@ const Clip: React.FC = () => {
       console.error("Error occured while deleting this clipboard:", res);
     }
   };
+
+  React.useEffect(() => {
+    const extractData = async () => {
+      if (
+        !hasRun.current ||
+        clipboardName !== name // New clipboard is selected from drawer hence clipboardName change without re-render of component
+      ) {
+        hasRun.current = true;
+        setName(clipboardName);
+        if (clipboard.is_encrypted) {
+          let passwd: string | null = null;
+          while (passwd === null) {
+            passwd = prompt("Enter password: ");
+            if (passwd === null) continue;
+            try {
+              const decryptedText = await decryptText(
+                new Uint8Array(clipboard.text),
+                passwd
+              );
+              setText(decryptedText);
+            } catch (error) {
+              alert("Invalid password!");
+              passwd = null;
+            }
+          }
+        } else {
+          setText(String.fromCharCode(...clipboard.text));
+        }
+      }
+    };
+
+    extractData();
+  }, [clipboardList, clipboard]);
 
   return (
     <Paper

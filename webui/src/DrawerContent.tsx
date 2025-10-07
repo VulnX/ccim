@@ -23,7 +23,11 @@ type MyDrawerProps = {
   handleDrawerToggle: () => void;
 };
 
-const ClipboardList: React.FC = () => {
+type ClipboardListProps = {
+  handleDrawerToggle: () => void;
+};
+
+const ClipboardList: React.FC<ClipboardListProps> = ({ handleDrawerToggle }) => {
   const navigate = useNavigate();
   const hasRun = React.useRef(false);
   const { clipboardList, fetchClipboards } = useClipboard()!;
@@ -51,6 +55,7 @@ const ClipboardList: React.FC = () => {
             }}
             onClick={() => {
               navigate(`/clip/${clipboard.name}`);
+              handleDrawerToggle();
             }}
           >
             <Stack>
@@ -146,7 +151,7 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
         }}
       >
         <Divider sx={{ marginBottom: 2 }} />
-        <ClipboardList />
+        <ClipboardList handleDrawerToggle={handleDrawerToggle} />
       </Box>
     </Stack>
   );

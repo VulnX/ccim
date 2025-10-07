@@ -7,10 +7,12 @@ import { Route, Routes } from "react-router-dom";
 import Create from "./pages/create/Create";
 import Clip from "./pages/clip/Clip";
 import Home from "./pages/home/Home";
+import { useClipboard } from "./context/ClipboardContext";
 
 export const drawerWidth = 260;
 
 const App = () => {
+  const { loading } = useClipboard()!;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
@@ -47,12 +49,16 @@ const App = () => {
       >
         <Toolbar />
 
-        {/* Pages */}
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/create" element={<Create />} />
-          <Route path="/clip/:clipboardName" element={<Clip />} />
-        </Routes>
+        {loading ? (
+          <h1>loading</h1>
+        ) : (
+          /* Pages */
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/create" element={<Create />} />
+            <Route path="/clip/:clipboardName" element={<Clip />} />
+          </Routes>
+        )}
       </Box>
     </Box>
   );

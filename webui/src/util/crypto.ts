@@ -1,5 +1,5 @@
 // Decrypt the clipboard's text
-const decryptText = async (
+export const decryptText = async (
   encryptedData: Uint8Array,
   password: string
 ): Promise<string> => {
