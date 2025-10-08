@@ -1,8 +1,21 @@
-// Decrypt the clipboard's text
 export const decryptText = async (
-  encryptedData: Uint8Array,
-  password: string
+  encryptedText: number[],
+  password: string,
 ): Promise<string> => {
+  const decryptedData = await decryptData(
+    new Uint8Array(encryptedText),
+    password,
+  );
+
+  // Convert decrypted binary data into a string (assuming it was originally text)
+  const decoder = new TextDecoder();
+  return decoder.decode(decryptedData);
+};
+
+export const decryptData = async (
+  encryptedData: Uint8Array,
+  password: string,
+): Promise<ArrayBuffer> => {
   const salt = encryptedData.slice(0, 16); // First 16 bytes are the salt
   const iv = encryptedData.slice(16, 28); // Next 12 bytes are the IV
   const ciphertext = encryptedData.slice(28); // The rest is the encrypted data
@@ -13,7 +26,7 @@ export const decryptText = async (
     encoder.encode(password),
     "PBKDF2",
     false,
-    ["deriveKey"]
+    ["deriveKey"],
   );
   const key = await crypto.subtle.deriveKey(
     {
@@ -25,17 +38,16 @@ export const decryptText = async (
     baseKey,
     { name: "AES-GCM", length: 256 },
     false,
-    ["decrypt"]
+    ["decrypt"],
   );
 
   try {
     const decryptedBuffer = await crypto.subtle.decrypt(
       { name: "AES-GCM", iv },
       key,
-      ciphertext
+      ciphertext,
     );
-    const decoder = new TextDecoder();
-    return decoder.decode(decryptedBuffer);
+    return decryptedBuffer; // Return raw binary data (Uint8Array)
   } catch (error) {
     throw new Error("Decryption failed");
   }

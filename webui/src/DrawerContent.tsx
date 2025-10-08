@@ -27,7 +27,9 @@ type ClipboardListProps = {
   handleDrawerToggle: () => void;
 };
 
-const ClipboardList: React.FC<ClipboardListProps> = ({ handleDrawerToggle }) => {
+const ClipboardList: React.FC<ClipboardListProps> = ({
+  handleDrawerToggle,
+}) => {
   const navigate = useNavigate();
   const hasRun = React.useRef(false);
   const { clipboardList, fetchClipboards } = useClipboard()!;

@@ -13,7 +13,7 @@ import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { formatBytes } from "../../util/helper";
 import { useClipboard } from "../../context/ClipboardContext";
-import { decryptText } from "../../util/crypto";
+import { decryptData, decryptText } from "../../util/crypto";
 
 const Clip: React.FC = () => {
   const navigate = useNavigate();
@@ -26,14 +26,45 @@ const Clip: React.FC = () => {
   const hasRun = React.useRef(false);
   const [name, setName] = React.useState<string | undefined>(undefined);
   const [text, setText] = React.useState<string | undefined>(undefined);
+  const [password, setPassword] = React.useState<string | undefined>(undefined);
 
-  const downloadFile = (fileName: string, fileId: string) => {
-    const link = document.createElement("a");
-    link.download = fileName;
-    link.href = `/api/clipboards/file/${fileId}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const downloadFile = async (fileName: string, fileId: string) => {
+    try {
+      // Fetch the file's data (encrypted or not) from the server
+      const response = await fetch(`/api/clipboards/file/${fileId}`);
+      const arrayBuffer = await response.arrayBuffer();
+
+      if (clipboard.is_encrypted) {
+        // If the file is encrypted, decrypt it first
+        const decryptedData = await decryptData(
+          new Uint8Array(arrayBuffer),
+          password!,
+        );
+
+        const blob = new Blob([decryptedData], {
+          type: "application/octet-stream",
+        });
+        const link = document.createElement("a");
+        link.download = fileName;
+        link.href = URL.createObjectURL(blob);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // If the file is not encrypted, download as it is
+        const blob = new Blob([arrayBuffer], {
+          type: "application/octet-stream",
+        });
+        const link = document.createElement("a");
+        link.download = fileName;
+        link.href = URL.createObjectURL(blob);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (error) {
+      console.error("Error downloading file:", error);
+    }
   };
 
   const deleteClipboard = async () => {
@@ -63,11 +94,9 @@ const Clip: React.FC = () => {
             passwd = prompt("Enter password: ");
             if (passwd === null) continue;
             try {
-              const decryptedText = await decryptText(
-                new Uint8Array(clipboard.text),
-                passwd
-              );
+              const decryptedText = await decryptText(clipboard.text, passwd);
               setText(decryptedText);
+              setPassword(passwd);
             } catch (error) {
               alert("Invalid password!");
               passwd = null;
