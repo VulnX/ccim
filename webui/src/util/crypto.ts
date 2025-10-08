@@ -1,3 +1,8 @@
+interface PasswordPayload {
+  hash: number[];
+  timestamp: number;
+}
+
 export const decryptText = async (
   encryptedText: number[],
   password: string,
@@ -51,4 +56,50 @@ export const decryptData = async (
   } catch (error) {
     throw new Error("Decryption failed");
   }
+};
+
+export const preparePassword = async (
+  password: string,
+): Promise<ArrayBuffer> => {
+  const passwordPayload = await preparePasswordPayload(password);
+  const publicKey = await importPublicKey();
+  return crypto.subtle.encrypt(
+    {
+      name: "RSA-OAEP",
+    },
+    publicKey,
+    new TextEncoder().encode(JSON.stringify(passwordPayload)),
+  );
+};
+
+const preparePasswordPayload = async (
+  password: string,
+): Promise<PasswordPayload> => {
+  const encoded = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", encoded);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const timestamp = Math.floor(Date.now() / 1000);
+  const payload = {
+    hash: hashArray,
+    timestamp,
+  };
+  return payload;
+};
+
+const importPublicKey = async (): Promise<CryptoKey> => {
+  const pemKey = await fetch("/api/publickey").then((res) => res.text());
+  const pemHeader = "-----BEGIN PUBLIC KEY-----";
+  const pemFooter = "-----END PUBLIC KEY-----";
+  const pem = pemKey
+    .replace(pemHeader, "")
+    .replace(pemFooter, "")
+    .replace(/\n/g, "");
+  const binaryDer = Uint8Array.from(atob(pem), (c) => c.charCodeAt(0));
+  return crypto.subtle.importKey(
+    "spki",
+    binaryDer.buffer,
+    { name: "RSA-OAEP", hash: "SHA-256" },
+    false,
+    ["encrypt"],
+  );
 };

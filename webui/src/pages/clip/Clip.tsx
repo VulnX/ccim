@@ -13,7 +13,7 @@ import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { formatBytes } from "../../util/helper";
 import { useClipboard } from "../../context/ClipboardContext";
-import { decryptData, decryptText } from "../../util/crypto";
+import { decryptData, decryptText, preparePassword } from "../../util/crypto";
 
 const Clip: React.FC = () => {
   const navigate = useNavigate();
@@ -68,9 +68,17 @@ const Clip: React.FC = () => {
   };
 
   const deleteClipboard = async () => {
+    const formData = new FormData();
+    if (clipboard.is_encrypted) {
+      const passwd_hash = await preparePassword(password!);
+      formData.append(
+        "passwd",
+        JSON.stringify(Array.from(new Uint8Array(passwd_hash))),
+      );
+    }
     const res = await fetch(`/api/clipboards/${clipboard.name}`, {
       method: "DELETE",
-      body: new FormData(),
+      body: formData,
     });
     if (res.status === 204) {
       await fetchClipboards();
