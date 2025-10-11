@@ -3,7 +3,7 @@ import { AppBar, Toolbar, IconButton, Box } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import { drawerWidth } from "./App";
 import { useNavigate } from "react-router-dom";
-import logo from '/assets/logo/logo.svg';
+import logo from "/assets/logo/logo.svg";
 
 type MyAppbarProps = {
   isMobile: boolean;
