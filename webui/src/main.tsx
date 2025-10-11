@@ -4,13 +4,16 @@ import App from "./App.tsx";
 import "./main.css";
 import { BrowserRouter } from "react-router-dom";
 import { ClipboardProvider } from "./context/ClipboardContext.tsx";
+import { SnackbarProvider } from "notistack";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <ClipboardProvider>
-        <App />
+        <SnackbarProvider>
+          <App />
+        </SnackbarProvider>
       </ClipboardProvider>
     </BrowserRouter>
-  </StrictMode>,
+  </StrictMode>
 );
