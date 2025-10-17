@@ -15,5 +15,5 @@ createRoot(document.getElementById("root")!).render(
         </SnackbarProvider>
       </ClipboardProvider>
     </BrowserRouter>
-  </StrictMode>
+  </StrictMode>,
 );
