@@ -54,7 +54,7 @@ const Clip: React.FC = () => {
         enqueueSnackbar("🔐 Decrypting...");
         const decryptedData = await decryptData(
           new Uint8Array(arrayBuffer),
-          password!
+          password!,
         );
         blob = new Blob([decryptedData], {
           type: "application/octet-stream",
@@ -84,7 +84,7 @@ const Clip: React.FC = () => {
       const passwd_hash = await preparePassword(password!);
       formData.append(
         "passwd",
-        JSON.stringify(Array.from(new Uint8Array(passwd_hash)))
+        JSON.stringify(Array.from(new Uint8Array(passwd_hash))),
       );
     }
     const res = await fetch(`/api/clipboards/${clipboard.name}`, {
@@ -102,8 +102,10 @@ const Clip: React.FC = () => {
 
   const checkPassword = async () => {
     try {
-      const decryptedText = await decryptText(clipboard.text, password!);
-      setText(decryptedText);
+      if (clipboard.text.length !== 0) {
+        const decryptedText = await decryptText(clipboard.text, password!);
+        setText(decryptedText);
+      }
       setShowDialog(false);
     } catch (error) {
       enqueueSnackbar("INVALID PASSWORD");
@@ -136,7 +138,12 @@ const Clip: React.FC = () => {
           <DialogContentText>
             🔒 This clipboard is encrypted. Password is required to view it.
           </DialogContentText>
-          <form onSubmit={(e) => { e.preventDefault(); checkPassword(); }}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              checkPassword();
+            }}
+          >
             <FormControl sx={{ marginTop: 3 }} fullWidth variant="outlined">
               <InputLabel htmlFor="password-input">Password</InputLabel>
               <OutlinedInput

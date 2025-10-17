@@ -26,9 +26,9 @@ export const createClipboard = async (
 ) => {
   const formData = new FormData();
 
-  if (0 < text.length) {
-    formData.append("text", isEncrypted ? await encrypt(text, password) : text);
-  }
+  // Allow creation of empty encrypted text, so that frontend can attempt to
+  // decrypt it and verify password.
+  formData.append("text", isEncrypted ? await encrypt(text, password) : text);
   const encryptionPromises = fileList.map(async (file) => {
     formData.append(
       "file",
