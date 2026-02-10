@@ -3,7 +3,6 @@ import {
   Button,
   Dialog,
   DialogContent,
-  DialogContentText,
   Divider,
   FormControl,
   IconButton,
@@ -24,15 +23,30 @@ import { useClipboard } from "../../context/ClipboardContext";
 import { decryptData, decryptText, preparePassword } from "../../util/crypto";
 import { enqueueSnackbar } from "notistack";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
+import LockIcon from "@mui/icons-material/Lock";
+import DescriptionIcon from "@mui/icons-material/Description";
+import DownloadIcon from "@mui/icons-material/Download";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 
 const Clip: React.FC = () => {
   const navigate = useNavigate();
   const { clipboardName } = useParams();
   const { clipboardList, fetchClipboards } = useClipboard()!;
   const clipboard = clipboardList.find((clip) => clip.name === clipboardName);
+
   if (!clipboard) {
-    return <h1>NOT FOUND</h1>;
+    return (
+      <Box sx={{ p: 4, textAlign: "center" }}>
+        <Typography variant="h4" fontWeight={700}>
+          404 Not Found
+        </Typography>
+        <Button onClick={() => navigate("/")} sx={{ mt: 2 }}>
+          Home
+        </Button>
+      </Box>
+    );
   }
+
   const hasRun = React.useRef(false);
   const [name, setName] = React.useState<string | undefined>(undefined);
   const [text, setText] = React.useState<string | undefined>(undefined);
@@ -44,14 +58,12 @@ const Clip: React.FC = () => {
 
   const downloadFile = async (fileName: string, fileId: string) => {
     try {
-      // Fetch the file's data (encrypted or not) from the server
       const response = await fetch(`/api/clipboards/file/${fileId}`);
       const arrayBuffer = await response.arrayBuffer();
 
       let blob: Blob;
       if (clipboard.is_encrypted) {
-        // If the file is encrypted, decrypt it first
-        enqueueSnackbar("🔐 Decrypting...");
+        enqueueSnackbar("Decrypting...");
         const decryptedData = await decryptData(
           new Uint8Array(arrayBuffer),
           password!,
@@ -60,13 +72,12 @@ const Clip: React.FC = () => {
           type: "application/octet-stream",
         });
       } else {
-        // If the file is not encrypted, download as it is
         blob = new Blob([arrayBuffer], {
           type: "application/octet-stream",
         });
       }
 
-      enqueueSnackbar("Your download will start soon");
+      enqueueSnackbar("Download starting...");
       const link = document.createElement("a");
       link.download = fileName;
       link.href = URL.createObjectURL(blob);
@@ -75,6 +86,7 @@ const Clip: React.FC = () => {
       document.body.removeChild(link);
     } catch (error) {
       console.error("Error downloading file:", error);
+      enqueueSnackbar("Download failed", { variant: "error" });
     }
   };
 
@@ -93,10 +105,10 @@ const Clip: React.FC = () => {
     });
     if (res.status === 204) {
       await fetchClipboards();
-      enqueueSnackbar("Deleted clipboard");
-      navigate(-1);
+      enqueueSnackbar("Clipboard deleted");
+      navigate("/");
     } else {
-      console.error("Error occured while deleting this clipboard:", res);
+      enqueueSnackbar("Delete failed", { variant: "error" });
     }
   };
 
@@ -108,16 +120,13 @@ const Clip: React.FC = () => {
       }
       setShowDialog(false);
     } catch (error) {
-      enqueueSnackbar("INVALID PASSWORD");
+      enqueueSnackbar("Invalid password", { variant: "error" });
     }
   };
 
   React.useEffect(() => {
     const extractData = async () => {
-      if (
-        !hasRun.current ||
-        clipboardName !== name // New clipboard is selected from drawer hence clipboardName change without re-render of component
-      ) {
+      if (!hasRun.current || clipboardName !== name) {
         hasRun.current = true;
         setName(clipboardName);
         if (clipboard.is_encrypted) {
@@ -127,29 +136,37 @@ const Clip: React.FC = () => {
         }
       }
     };
-
     extractData();
-  }, [clipboardList, clipboard]);
+  }, [clipboardList, clipboard, clipboardName, name]);
 
   return (
     <React.Fragment>
-      <Dialog open={showDialog} fullWidth>
-        <DialogContent>
-          <DialogContentText>
-            🔒 This clipboard is encrypted. Password is required to view it.
-          </DialogContentText>
+      <Dialog
+        open={showDialog}
+        fullWidth
+        maxWidth="xs"
+        PaperProps={{ sx: { borderRadius: 1 } }}
+      >
+        <DialogContent sx={{ p: 4, textAlign: "center" }}>
+          <LockIcon sx={{ fontSize: 48, mb: 2, color: "#1a1a1a" }} />
+          <Typography variant="h5" fontWeight={700} gutterBottom>
+            Secure Access
+          </Typography>
+          <Typography variant="body2" sx={{ color: "#666666", mb: 4 }}>
+            This clipboard is encrypted. Enter password to decrypt content.
+          </Typography>
           <form
             onSubmit={(e) => {
               e.preventDefault();
               checkPassword();
             }}
           >
-            <FormControl sx={{ marginTop: 3 }} fullWidth variant="outlined">
+            <FormControl fullWidth variant="outlined">
               <InputLabel htmlFor="password-input">Password</InputLabel>
               <OutlinedInput
                 id="password-input"
                 type={showPassword ? "text" : "password"}
-                value={password!}
+                value={password || ""}
                 onChange={(e) => setPassword(e.target.value)}
                 autoFocus
                 endAdornment={
@@ -160,10 +177,27 @@ const Clip: React.FC = () => {
                   </InputAdornment>
                 }
                 label="Password"
+                sx={{
+                  borderRadius: 1,
+                  background: "#f9f9f9",
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#1a1a1a",
+                  },
+                }}
               />
               <Button
                 variant="contained"
-                sx={{ marginTop: 3 }}
+                disableElevation
+                fullWidth
+                sx={{
+                  marginTop: 3,
+                  background: "#1a1a1a",
+                  color: "white",
+                  fontWeight: 600,
+                  py: 1.5,
+                  textTransform: "none",
+                  "&:hover": { background: "#000000" },
+                }}
                 onClick={checkPassword}
               >
                 Decrypt
@@ -172,91 +206,183 @@ const Clip: React.FC = () => {
           </form>
         </DialogContent>
       </Dialog>
+
       <Paper
-        elevation={3}
+        elevation={0}
         sx={{
-          justifySelf: "center",
-          width: {
-            xs: "90vw",
-            md: "75%",
-          },
-          padding: 2,
+          maxWidth: "900px",
+          mx: "auto",
+          p: { xs: 2, md: 4 },
           marginTop: 5,
+          background: "#ffffff",
+          borderRadius: 1,
+          border: "1px solid #e0e0e0",
         }}
       >
-        <Stack>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          mb={4}
+        >
+          <Box>
+            <Typography
+              variant="h4"
+              sx={{ fontWeight: 800, color: "#1a1a1a", mb: 0.5 }}
+            >
+              {clipboard.name}
+            </Typography>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "#666666",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                }}
+              >
+                <LockIcon sx={{ fontSize: "0.9rem" }} />
+                {clipboard.is_encrypted ? "Encrypted" : "Public"}
+              </Typography>
+            </Stack>
+          </Box>
           <Button
-            variant="contained"
+            variant="outlined"
             size="small"
-            color="error"
+            startIcon={<DeleteOutlineIcon />}
             sx={{
-              alignSelf: "flex-end",
+              fontWeight: 600,
+              color: "#e74c3c",
+              borderColor: "#fadbd8",
+              textTransform: "none",
+              "&:hover": {
+                borderColor: "#e74c3c",
+                backgroundColor: "#fef5f5",
+              },
             }}
             onClick={deleteClipboard}
           >
             Delete
           </Button>
         </Stack>
-        <Typography variant="h4">{clipboard.name}</Typography>
-        <Divider sx={{ marginBottom: 5 }} />
-        <Box sx={{ position: "relative", marginBottom: 2 }}>
-          <Typography
-            variant="caption"
-            sx={{
-              position: "absolute",
-              top: -10,
-              left: 10,
-              backgroundColor: "white",
-              paddingX: 0.5,
-              color: "primary.main",
-              fontSize: "0.8rem",
-            }}
-          >
-            Text
-          </Typography>
+
+        <Divider sx={{ mb: 4 }} />
+
+        <Box sx={{ mb: 6 }}>
+          <Stack direction="row" spacing={1} alignItems="center" mb={1.5}>
+            <DescriptionIcon sx={{ color: "#1a1a1a", fontSize: "1.2rem" }} />
+            <Typography
+              variant="subtitle2"
+              sx={{ fontWeight: 700, color: "#1a1a1a" }}
+            >
+              Text Content
+            </Typography>
+          </Stack>
           <Box
             component="pre"
             sx={{
-              fontFamily: "monospace",
-              border: "1px solid",
-              borderColor: "primary.main",
+              fontFamily: "'Space Mono', monospace",
+              border: "1px solid #e0e0e0",
               borderRadius: 1,
-              padding: 2,
+              padding: 3,
               overflowX: "auto",
-              fontSize: "small",
+              fontSize: "0.95rem",
+              background: "#f9f9f9",
+              minHeight: "150px",
+              whiteSpace: "pre-wrap",
+              wordWrap: "break-word",
+              color: "#1a1a1a",
+              lineHeight: 1.6,
             }}
           >
-            {text}
+            {text || "No text content..."}
           </Box>
         </Box>
-        <Divider />
-        <Typography variant="h5" marginTop={2} marginBottom={-1}>
-          Files
-        </Typography>
-        <List>
-          {Object.entries(clipboard.files).map(([_s, file]) => {
-            return (
-              <ListItemButton
-                key={file.id}
-                sx={{
-                  border: 1,
-                  borderColor: "divider",
-                  borderRadius: 1,
-                  marginY: 1,
-                }}
-                onClick={() => downloadFile(file.name, file.id)}
-              >
-                <ListItemText
-                  primary={file.name}
-                  secondary={formatBytes(file.size)}
+
+        <Divider sx={{ mb: 4 }} />
+
+        <Box>
+          <Stack direction="row" spacing={1} alignItems="center" mb={2}>
+            <DownloadIcon sx={{ color: "#1a1a1a", fontSize: "1.2rem" }} />
+            <Typography variant="h6" sx={{ fontWeight: 700, color: "#1a1a1a" }}>
+              Files
+            </Typography>
+          </Stack>
+          <List
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { sm: "1fr 1fr" },
+              gap: 2,
+            }}
+          >
+            {Object.entries(clipboard.files).map(([_s, file]) => {
+              return (
+                <ListItemButton
+                  key={file.id}
                   sx={{
-                    wordBreak: "break-all",
+                    borderRadius: 1,
+                    background: "white",
+                    border: "1px solid #e0e0e0",
+                    p: 2,
+                    transition: "all 0.2s ease",
+                    "&:hover": {
+                      borderColor: "#1a1a1a",
+                      backgroundColor: "#f9f9f9",
+                    },
                   }}
-                />
-              </ListItemButton>
-            );
-          })}
-        </List>
+                  onClick={() => downloadFile(file.name, file.id)}
+                >
+                  <Box
+                    sx={{
+                      mr: 2,
+                      width: 40,
+                      height: 40,
+                      borderRadius: 1,
+                      background: "#f5f5f5",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "#1a1a1a",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <DescriptionIcon fontSize="small" />
+                  </Box>
+                  <ListItemText
+                    primary={file.name}
+                    secondary={formatBytes(file.size)}
+                    primaryTypographyProps={{
+                      fontWeight: 600,
+                      color: "#1a1a1a",
+                      fontSize: "0.9rem",
+                    }}
+                    secondaryTypographyProps={{
+                      color: "#666666",
+                      fontSize: "0.75rem",
+                    }}
+                    sx={{
+                      wordBreak: "break-all",
+                    }}
+                  />
+                </ListItemButton>
+              );
+            })}
+          </List>
+          {Object.keys(clipboard.files).length === 0 && (
+            <Typography
+              variant="body2"
+              sx={{
+                color: "#999999",
+                fontStyle: "italic",
+                textAlign: "center",
+                py: 4,
+              }}
+            >
+              No files attached to this clipboard.
+            </Typography>
+          )}
+        </Box>
       </Paper>
     </React.Fragment>
   );

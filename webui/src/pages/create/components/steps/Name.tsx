@@ -8,42 +8,42 @@ type NameStepProps = {
 
 export const getRandomName = () => {
   const animals: string[] = [
-    "lion",
-    "tiger",
-    "elephant",
-    "zebra",
-    "giraffe",
-    "panda",
-    "koala",
-    "kangaroo",
+    "eagle",
+    "falcon",
     "wolf",
-    "shark",
+    "lynx",
+    "panther",
+    "hawk",
+    "owl",
+    "raven",
+    "fox",
+    "deer",
   ];
 
   const colors: string[] = [
-    "red",
-    "blue",
-    "green",
-    "yellow",
     "black",
     "white",
-    "purplutile",
-    "orange",
-    "brown",
-    "pink",
+    "gray",
+    "silver",
+    "slate",
+    "charcoal",
+    "ivory",
+    "onyx",
+    "graphite",
+    "iron",
   ];
 
   const elements: string[] = [
-    "hydrogen",
-    "oxygen",
-    "nitrogen",
-    "carbon",
-    "helium",
-    "neon",
-    "sodium",
-    "iron",
-    "gold",
-    "silver",
+    "quantum",
+    "matrix",
+    "nexus",
+    "vector",
+    "flux",
+    "cipher",
+    "vertex",
+    "protocol",
+    "core",
+    "signal",
   ];
 
   function getRandomItem<T>(list: T[]): T {
@@ -66,6 +66,16 @@ const NameStep: React.FC<NameStepProps> = ({ name, setName }) => {
       fullWidth
       value={name}
       onChange={(e) => setName(e.target.value)}
+      sx={{
+        "& .MuiOutlinedInput-root": {
+          borderRadius: 1,
+          backgroundColor: "#f9f9f9",
+          "& fieldset": { borderColor: "#e0e0e0" },
+          "&:hover fieldset": { borderColor: "#1a1a1a" },
+          "&.Mui-focused fieldset": { borderColor: "#1a1a1a" },
+        },
+        "& .MuiInputLabel-root.Mui-focused": { color: "#1a1a1a" },
+      }}
     />
   );
 };

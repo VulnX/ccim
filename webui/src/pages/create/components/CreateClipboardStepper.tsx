@@ -68,24 +68,70 @@ const CreateClipboardStepper: React.FC<CreateClipboardStepperProps> = ({
   };
 
   return (
-    <Stepper activeStep={activeStep} orientation="vertical">
+    <Stepper
+      activeStep={activeStep}
+      orientation="vertical"
+      sx={{
+        "& .MuiStepLabel-label": {
+          fontWeight: 600,
+          color: "#666666",
+          fontSize: "1rem",
+        },
+        "& .MuiStepLabel-label.Mui-active": {
+          color: "#1a1a1a",
+          fontWeight: 700,
+        },
+        "& .MuiStepIcon-root.Mui-active": {
+          color: "#1a1a1a", // Pure Black Theme
+        },
+        "& .MuiStepIcon-root.Mui-completed": {
+          color: "#1a1a1a", // Pure Black Theme
+        },
+        "& .MuiStepContent-root": {
+          borderLeft: "1px solid #e0e0e0",
+          marginLeft: "12px",
+          paddingLeft: "30px",
+        },
+      }}
+    >
       {steps.map((step, index) => (
         <Step key={step.label}>
           <StepLabel>{step.label}</StepLabel>
           <StepContent>
-            {step.component}
-            <Box sx={{ mb: 2 }}>
+            <Box sx={{ py: 1 }}>{step.component}</Box>
+            <Box sx={{ mb: 2, mt: 2, display: "flex", gap: 1 }}>
               <Button
                 variant="contained"
+                disableElevation
                 onClick={() => handleNext(index)}
-                sx={{ mt: 1, mr: 1 }}
+                sx={{
+                  borderRadius: 1,
+                  background: "#1a1a1a",
+                  color: "white",
+                  transition: "all 0.2s ease",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  px: 4,
+                  "&:hover": {
+                    background: "#000000",
+                  },
+                }}
               >
                 {index === steps.length - 1 ? "Create" : "Next"}
               </Button>
               <Button
                 disabled={index === 0}
                 onClick={handleBack}
-                sx={{ mt: 1, mr: 1 }}
+                sx={{
+                  textTransform: "none",
+                  color: "#666666",
+                  fontWeight: 500,
+                  px: 2,
+                  "&:hover": {
+                    color: "#1a1a1a",
+                    backgroundColor: "transparent",
+                  },
+                }}
               >
                 Back
               </Button>
