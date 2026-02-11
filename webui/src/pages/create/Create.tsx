@@ -72,22 +72,42 @@ const Create: React.FC = () => {
           }}
         >
           <Paper
+            elevation={0}
             sx={{
               marginY: 5,
-              paddingX: {
-                xs: 0,
-                lg: 5,
-              },
-              paddingY: {
-                xs: 0,
-                lg: 1,
-              },
+              paddingX: { xs: 0, lg: 5 },
+              paddingY: { xs: 0, lg: 1 },
+              background: "#ffffff",
+              borderRadius: 1,
+              border: "1px solid #e0e0e0",
             }}
           >
             <Tabs
               value={currentTab}
               onChange={handleTabChange}
               variant="fullWidth"
+              textColor="inherit"
+              sx={{
+                "& .MuiTab-root": {
+                  fontWeight: 600,
+                  fontSize: "1rem",
+                  transition: "all 0.3s ease",
+                  color: "#666666",
+                  "& .MuiSvgIcon-root": {
+                    color: "#666666",
+                  },
+                },
+                "& .Mui-selected": {
+                  color: "#1a1a1a !important",
+                  "& .MuiSvgIcon-root": {
+                    color: "#1a1a1a !important",
+                  },
+                },
+                "& .MuiTabs-indicator": {
+                  background: "#1a1a1a", // Pure Black Theme
+                  height: 3,
+                },
+              }}
             >
               <Tab
                 value="clipboard"
@@ -142,13 +162,14 @@ const Create: React.FC = () => {
               variant="determinate"
               value={progress}
               sx={{
-                maxWidth: {
-                  xs: "90%",
-                  lg: "100%",
-                },
-                marginLeft: {
-                  xs: "5%",
-                  lg: "0%",
+                maxWidth: { xs: "90%", lg: "100%" },
+                marginLeft: { xs: "5%", lg: "0%" },
+                height: 4,
+                borderRadius: 1,
+                background: "#f5f5f5",
+                "& .MuiLinearProgress-bar": {
+                  background: "#1a1a1a",
+                  borderRadius: 1,
                 },
               }}
             />

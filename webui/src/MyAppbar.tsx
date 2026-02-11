@@ -19,12 +19,13 @@ const MyAppbar: React.FC<MyAppbarProps> = ({
   return (
     <AppBar
       position="fixed"
+      elevation={0}
       sx={{
         width: { md: `calc(100% - ${drawerWidth}px)` },
         ml: { md: `${drawerWidth}px` },
-        backgroundColor: "white",
+        background: "white",
         color: "black",
-        boxShadow: 1,
+        borderBottom: "1px solid #e0e0e0",
       }}
     >
       <Toolbar
@@ -39,7 +40,9 @@ const MyAppbar: React.FC<MyAppbarProps> = ({
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ marginRight: 2 }}
+            sx={{
+              marginRight: 2,
+            }}
           >
             <MenuIcon />
           </IconButton>
@@ -50,10 +53,14 @@ const MyAppbar: React.FC<MyAppbarProps> = ({
           alt="CCIM Logo"
           sx={{
             height: {
-              xs: "50px",
-              md: "80px",
+              xs: "55px",
+              md: "75px",
             },
             cursor: "pointer",
+            transition: "opacity 0.2s ease",
+            "&:hover": {
+              opacity: 0.8,
+            },
           }}
           onClick={() => navigate("/")}
         />
