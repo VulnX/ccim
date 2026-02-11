@@ -45,7 +45,6 @@ pub struct CreateClipboardPayload {
 #[derive(Debug, Deserialize)]
 pub struct UpdateClipboardInfoPayload {
     pub new_text: Option<Vec<u8>>,
-    pub new_passwd: Option<Vec<u8>>,
     pub passwd: Option<Vec<u8>>,
 }
 
@@ -464,16 +463,10 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             res = Some(text_file_id);
         }
 
-        // Update password
-        // TODO : How will one remove the password from an encrypted clipboard
-        if let Some(new_passwd_bytes) = info.new_passwd.clone() {
-            let new_passwd = util::get_passwd(new_passwd_bytes).await?;
-            let mut stmt = conn
-                .prepare("UPDATE clipboards SET passwd_hash = ? WHERE clipboard_name = ?")
-                .map_err(Error::Database)?;
-            stmt.execute(params![new_passwd.hash, &clipboard_name])
-                .map_err(Error::Database)?;
-        }
+        // NOTE: Updating the password is deliberately forbidden as of now since
+        // doing so will imply that all previous files/text are now corrupted.
+        // The only possible solution is to load -> decrypt -> re-encrypt, which
+        // is somewhat expensive.
 
         // TODO : How about updating the name as well. Not possible in current
         // implementation because `clipboard_name` field is used as a foreign

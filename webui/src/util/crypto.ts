@@ -58,6 +58,62 @@ export const decryptData = async (
   }
 };
 
+export const encryptText = async (
+  text: string,
+  password: string,
+): Promise<Blob> => {
+  const arrayBuffer = new TextEncoder().encode(text).buffer;
+  return encryptData(arrayBuffer, password);
+};
+
+export const encryptFile = async (
+  file: File,
+  password: string,
+): Promise<Blob> => {
+  const arrayBuffer = await file.arrayBuffer();
+  return encryptData(arrayBuffer, password);
+};
+
+export const encryptData = async (
+  data: ArrayBuffer,
+  password: string,
+): Promise<Blob> => {
+  const encoder = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const baseKey = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(password),
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: "PBKDF2",
+      salt,
+      iterations: 100000,
+      hash: "SHA-256",
+    },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt"],
+  );
+  const encryptedBuffer = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    data,
+  );
+  const totalLength =
+    salt.byteLength + iv.byteLength + encryptedBuffer.byteLength;
+  const combined = new Uint8Array(totalLength);
+  combined.set(salt, 0);
+  combined.set(iv, salt.length);
+  combined.set(new Uint8Array(encryptedBuffer), salt.length + iv.length);
+  return new Blob([combined], { type: "application/octet-stream" });
+};
+
 export const preparePassword = async (
   password: string,
 ): Promise<ArrayBuffer> => {
