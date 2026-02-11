@@ -46,12 +46,14 @@ async fn test_list() {
     );
     assert_eq!(clipboards[1].name, "clip2");
     assert_eq!(clipboards[1].text, CLIPBOARD_TEXT.as_bytes().to_vec());
+    let mut files = clipboards[1]
+        .files
+        .iter()
+        .map(|file| file.name.clone())
+        .collect::<Vec<String>>();
+    files.sort();
     assert_eq!(
-        clipboards[1]
-            .files
-            .iter()
-            .map(|file| file.name.clone())
-            .collect::<Vec<String>>(),
+        files,
         ["file1", "file2"]
             .iter()
             .map(|s| s.to_string())
