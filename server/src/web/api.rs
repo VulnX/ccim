@@ -217,7 +217,7 @@ async fn update_clipboard(
     let mut new_info = None;
     let mut deleted_files = Vec::new();
     let mut added_file_map = HashMap::new();
-    while let Some(mut field) = multipart.next_field().await.unwrap() {
+    while let Ok(Some(mut field)) = multipart.next_field().await {
         match field.name() {
             Some("info") => {
                 let bytes = field.bytes().await.unwrap();
@@ -229,7 +229,7 @@ async fn update_clipboard(
             Some("delete") => {
                 let bytes = field.bytes().await.unwrap();
                 deleted_files = serde_json::from_slice::<Vec<String>>(&bytes)
-                    .map_err(|_| Error::BadRequest(Some("Part `files` is poorly formatted")))?;
+                    .map_err(|_| Error::BadRequest(Some("Part `delete` is poorly formatted")))?;
             }
             Some("file") => {
                 let id = uuid::Uuid::new_v4().to_string();
