@@ -27,6 +27,7 @@ import LockIcon from "@mui/icons-material/Lock";
 import DescriptionIcon from "@mui/icons-material/Description";
 import DownloadIcon from "@mui/icons-material/Download";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import CloseIcon from "@mui/icons-material/Close";
 
 const Clip: React.FC = () => {
   const navigate = useNavigate();
@@ -124,6 +125,10 @@ const Clip: React.FC = () => {
     }
   };
 
+  const handleClose = () => {
+    navigate("/");
+  };
+
   React.useEffect(() => {
     const extractData = async () => {
       if (!hasRun.current || clipboardName !== name) {
@@ -141,12 +146,19 @@ const Clip: React.FC = () => {
 
   return (
     <React.Fragment>
-      <Dialog
-        open={showDialog}
-        fullWidth
-        maxWidth="xs"
-        PaperProps={{ sx: { borderRadius: 1 } }}
-      >
+      <Dialog open={showDialog} fullWidth maxWidth="xs">
+        <IconButton
+          aria-label="close"
+          onClick={handleClose}
+          sx={(theme) => ({
+            position: "absolute",
+            right: 8,
+            top: 8,
+            color: theme.palette.grey[500],
+          })}
+        >
+          <CloseIcon />
+        </IconButton>
         <DialogContent sx={{ p: 4, textAlign: "center" }}>
           <LockIcon sx={{ fontSize: 48, mb: 2, color: "#1a1a1a" }} />
           <Typography variant="h5" fontWeight={700} gutterBottom>
