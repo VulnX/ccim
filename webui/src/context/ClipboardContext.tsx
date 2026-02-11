@@ -7,7 +7,7 @@ type ClipboardContextType = {
   setClipboardList: React.Dispatch<
     React.SetStateAction<GetClipboardResponse[]>
   >;
-  fetchClipboards: () => Promise<void>;
+  fetchClipboards: (silent?: boolean) => Promise<void>;
   loading: boolean;
 };
 
@@ -29,23 +29,23 @@ export const ClipboardProvider: React.FC<ClipboardProviderProps> = ({
   >([]);
   const [loading, setLoading] = React.useState(true);
 
-  const fetchClipboards = React.useCallback(async () => {
-    setLoading(true);
+  const fetchClipboards = React.useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     const response = await fetch("/api/clipboards");
     if (response.status === 204) {
       setClipboardList([]);
-      setLoading(false);
+      if (!silent) setLoading(false);
       return;
     }
     if (response.status !== 200) {
       console.error("Failed to get all clipboards");
-      setLoading(false);
+      if (!silent) setLoading(false);
       return;
     }
     const text = await response.text();
     const parsed: GetClipboardResponse[] = JSON.parse(text);
     setClipboardList(parsed);
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, []);
 
   return (
