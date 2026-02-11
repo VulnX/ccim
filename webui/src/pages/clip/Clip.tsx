@@ -327,7 +327,15 @@ const Clip: React.FC = () => {
               checkPassword();
             }}
           >
-            <FormControl fullWidth variant="outlined">
+            <FormControl
+              fullWidth
+              variant="outlined"
+              sx={{
+                "& .MuiInputLabel-root.Mui-focused": {
+                  color: "#1a1a1a",
+                },
+              }}
+            >
               <InputLabel htmlFor="password-input">Password</InputLabel>
               <OutlinedInput
                 id="password-input"
