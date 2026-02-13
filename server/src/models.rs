@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 #[derive(Debug)]
 struct ClipboardsEntry {
     clipboard_name: String,
-    text_file_id: String,
+    _text_file_id: String,
     passwd_hash: Option<Vec<u8>>,
     expiry: u64,
 }
@@ -59,16 +59,28 @@ pub struct FullClipboardData {
     pub expiry: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct GetClipboardsResponse {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClipboardMetadata {
     pub name: String,
-    pub text: Vec<u8>,
-    pub files: Vec<FileInfo>,
     pub is_encrypted: bool,
     pub expiry: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+/// Contains UUIDs of clipboard data files on the disk.
+#[derive(Debug, Serialize)]
+pub struct ClipboardData {
+    pub text_file_id: String,
+    pub file_map: HashMap<String, String>,
+}
+
+/// Actual response from the API.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ClipboardDataResponse {
+    pub text: Vec<u8>,
+    pub files: Vec<FileInfo>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FileInfo {
     pub name: String,
     pub id: String,
@@ -201,19 +213,19 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         Ok(())
     }
 
-    /// Get all existing clipboards details.
+    /// Get all existing clipboard's metadata.
     ///
     /// ## Arguments
     /// * None
     ///
     /// ## Returns
-    /// * A `Result` containing a `Vec` of `FullClipboardData` on success, or an `Error` on failure.
+    /// * A `Result` containing a `Vec` of `ClipboardMetadata` on success, or an `Error` on failure.
     ///
     /// ## Notes
     /// * Invoking this function automatically calls the `clear_expired_clipboards`
     ///   filter which removes expired clipboards details from the database as
     ///   well as from the filesystem
-    pub async fn get_clipboards(&self) -> Result<Vec<FullClipboardData>> {
+    pub async fn get_all_clipboards(&self) -> Result<Vec<ClipboardMetadata>> {
         filter::clear_expired_clipboards(self.db.clone()).await?;
 
         let conn = self.db.lock().await;
@@ -226,44 +238,75 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             .query_map([], |row| {
                 Ok(ClipboardsEntry {
                     clipboard_name: row.get(0)?,
-                    text_file_id: row.get(1)?,
+                    _text_file_id: row.get(1)?,
                     passwd_hash: row.get(2)?,
                     expiry: row.get(3)?,
                 })
             })
             .map_err(Error::Database)?;
 
-        let mut clipboards: Vec<FullClipboardData> = Vec::new();
+        let mut clipboards: Vec<ClipboardMetadata> = Vec::new();
 
         for clipboard_row in clipboard_rows.filter_map(|row| row.ok()) {
-            let mut stmt = conn
-                .prepare("SELECT file_id, file_name FROM clipboard_files WHERE clipboard_name = ?")
-                .map_err(Error::Database)?;
-
-            let files_rows = stmt
-                .query_map([&clipboard_row.clipboard_name], |row| {
-                    Ok(ClipboardFilesEntry {
-                        file_id: row.get(0)?,
-                        file_name: row.get(1)?,
-                    })
-                })
-                .map_err(Error::Database)?;
-
-            let mut clipboard = FullClipboardData {
+            let clipboard = ClipboardMetadata {
                 name: clipboard_row.clipboard_name,
-                text_file_id: clipboard_row.text_file_id,
                 is_encrypted: clipboard_row.passwd_hash.is_some(),
-                file_map: HashMap::new(),
                 expiry: clipboard_row.expiry,
             };
-
-            for file in files_rows.filter_map(|row| row.ok()) {
-                clipboard.file_map.insert(file.file_name, file.file_id);
-            }
-
             clipboards.push(clipboard);
         }
+
         Ok(clipboards)
+    }
+
+    /// Get data for a particular clipboard.
+    ///
+    /// ## Arguments
+    /// * `clipboard_name` - The name of clipboard whose data is to be retrieved.
+    ///
+    /// ## Returns
+    /// * A `Result` containing `ClipboardData` on success, or an `Error` on failure.
+    ///
+    /// ## Notes
+    /// * The response only contains the UUIDs of the files where the data is
+    ///   located on the disk. The caller must ensure to read the contents
+    ///   themselves.
+    pub async fn get_clipboard(&self, clipboard_name: &String) -> Result<ClipboardData> {
+        self.ensure_clipboard_exists(clipboard_name).await?;
+
+        let conn = self.db.lock().await;
+
+        let mut stmt = conn
+            .prepare("SELECT text_file_id FROM clipboards WHERE clipboard_name = ?")
+            .map_err(Error::Database)?;
+
+        let text_file_id = stmt
+            .query_row([clipboard_name], |row| row.get::<_, String>(0))
+            .map_err(Error::Database)?;
+
+        let mut file_map = HashMap::new();
+
+        let mut stmt = conn
+            .prepare("SELECT file_id, file_name FROM clipboard_files WHERE clipboard_name = ?")
+            .map_err(Error::Database)?;
+
+        let files_rows = stmt
+            .query_map([clipboard_name], |row| {
+                Ok(ClipboardFilesEntry {
+                    file_id: row.get(0)?,
+                    file_name: row.get(1)?,
+                })
+            })
+            .map_err(Error::Database)?;
+
+        for file in files_rows.filter_map(|row| row.ok()) {
+            file_map.insert(file.file_name, file.file_id);
+        }
+
+        Ok(ClipboardData {
+            text_file_id,
+            file_map,
+        })
     }
 
     /// Deletes a clipboard entry and associated clipboard files from the database.

@@ -1,6 +1,6 @@
 use axum::http::StatusCode;
 use axum_test::multipart::{MultipartForm, Part};
-use ccim_server::models::GetClipboardsResponse;
+use ccim_server::models::ClipboardDataResponse;
 use chrono::Utc;
 use serde_json::json;
 use serial_test::serial;
@@ -36,9 +36,9 @@ async fn test_update() {
         .await
         .assert_status_ok();
 
-    let body = server.get("/api/clipboards").await.text();
-    let clipboards = serde_json::from_str::<Vec<GetClipboardsResponse>>(&body).unwrap();
-    assert_eq!(clipboards[0].text, "BBBB".as_bytes().to_vec());
+    let body = server.get("/api/clipboards/clip").await.text();
+    let data = serde_json::from_str::<ClipboardDataResponse>(&body).unwrap();
+    assert_eq!(data.text, "BBBB".as_bytes().to_vec());
 }
 
 #[tokio::test]
@@ -59,9 +59,9 @@ async fn test_update_files() {
         .await
         .assert_status(StatusCode::CREATED);
 
-    let body = server.get("/api/clipboards").await.text();
-    let res = serde_json::from_str::<Vec<GetClipboardsResponse>>(&body).unwrap();
-    let file1_id = res[0]
+    let body = server.get("/api/clipboards/clip").await.text();
+    let data = serde_json::from_str::<ClipboardDataResponse>(&body).unwrap();
+    let file1_id = data
         .files
         .iter()
         .find(|file| file.name == "file1")
@@ -80,11 +80,11 @@ async fn test_update_files() {
         .await
         .assert_status(StatusCode::OK);
 
-    let body = server.get("/api/clipboards").await.text();
-    let clipboards = serde_json::from_str::<Vec<GetClipboardsResponse>>(&body).unwrap();
+    let body = server.get("/api/clipboards/clip").await.text();
+    let data = serde_json::from_str::<ClipboardDataResponse>(&body).unwrap();
 
-    assert!(!clipboards[0].files.iter().any(|file| file.name == "file1"));
-    assert!(clipboards[0].files.iter().any(|file| file.name == "file3"));
+    assert!(!data.files.iter().any(|file| file.name == "file1"));
+    assert!(data.files.iter().any(|file| file.name == "file3"));
 }
 
 #[tokio::test]
