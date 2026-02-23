@@ -32,23 +32,27 @@ export const ClipboardProvider: React.FC<ClipboardProviderProps> = ({
   >([]);
   const [loading, setLoading] = React.useState(true);
 
-  const fetchClipboards = React.useCallback(async (silent = false) => {
-    if (!silent) setLoading(true);
-    const response = await fetch("/api/clipboards");
-    if (response.status === 204) {
-      setClipboardList([]);
-      if (!silent) setLoading(false);
-      return;
-    }
-    if (response.status !== 200) {
-      console.error("Failed to get all clipboards");
-      if (!silent) setLoading(false);
-      return;
-    }
-    const text = await response.text();
-    const parsed: ClipboardMetadata[] = JSON.parse(text);
-    setClipboardList(parsed);
-    if (!silent) setLoading(false);
+  React.useEffect(() => {
+    setLoading(true);
+    const eventSource = new EventSource("/api/clipboards");
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data: ClipboardMetadata[] = JSON.parse(event.data);
+        setClipboardList(data);
+        setLoading(false);
+      } catch (err) {
+        console.error("Failed to parse SSE data", err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("SSE connection error", err);
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, []);
 
   const fetchClipboardData = React.useCallback(async (name: string) => {
@@ -69,7 +73,7 @@ export const ClipboardProvider: React.FC<ClipboardProviderProps> = ({
       value={{
         clipboardList,
         setClipboardList,
-        fetchClipboards,
+        fetchClipboards: async () => { }, // Kept for type compatibility if needed elsewhere, but does nothing
         loading,
         fetchClipboardData
       }}
