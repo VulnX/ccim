@@ -1,5 +1,5 @@
 use axum::http::StatusCode;
-use ccim_server::models::GetClipboardsResponse;
+use ccim_server::models::{ClipboardDataResponse, ClipboardMetadata};
 use serial_test::serial;
 
 use crate::common::{init_test, make_clipboard_form};
@@ -17,8 +17,16 @@ async fn test_download_file() {
         .await
         .assert_status(StatusCode::CREATED);
     let body = server.get("/api/clipboards").await.text();
-    let res = serde_json::from_str::<Vec<GetClipboardsResponse>>(&body).unwrap();
-    let file_id = &res[0].files[0].id;
+    let res = serde_json::from_str::<Vec<ClipboardMetadata>>(&body).unwrap();
+    let clipboard_name = &res[0].name;
+
+    let body = server
+        .get(&format!("/api/clipboards/{}", clipboard_name))
+        .await
+        .text();
+    let data = serde_json::from_str::<ClipboardDataResponse>(&body).unwrap();
+    let file_id = &data.files[0].id;
+
     let text = server
         .get(&format!("/api/clipboards/file/{}", file_id))
         .await

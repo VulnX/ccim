@@ -37,25 +37,30 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 import AddIcon from "@mui/icons-material/Add";
+import Loading from "../../components/Loading";
+import type { ClipboardData } from "../../util/types";
 
 const Clip: React.FC = () => {
   const navigate = useNavigate();
   const { clipboardName } = useParams();
-  const { clipboardList, fetchClipboards } = useClipboard()!;
-  const clipboard = clipboardList.find((clip) => clip.name === clipboardName);
+  const { clipboardList, fetchClipboards, fetchClipboardData } = useClipboard()!;
 
-  if (!clipboard) {
-    return (
-      <Box sx={{ p: 4, textAlign: "center" }}>
-        <Typography variant="h4" fontWeight={700}>
-          404 Not Found
-        </Typography>
-        <Button onClick={() => navigate("/")} sx={{ mt: 2 }}>
-          Home
-        </Button>
-      </Box>
-    );
-  }
+  const [detailedData, setDetailedData] = React.useState<ClipboardData | null>(null);
+  const [isCtxLoading, setIsCtxLoading] = React.useState(true);
+
+  // Merge full data from API with metadata from context
+  const metadata = React.useMemo(() =>
+    clipboardList.find((clip) => clip.name === clipboardName),
+    [clipboardList, clipboardName]
+  );
+
+  const clipboard = React.useMemo(() => {
+    if (!detailedData || !metadata) return null;
+    return {
+      ...detailedData,
+      ...metadata, // Ensure metadata override (like name, is_encrypted, expiry)
+    };
+  }, [detailedData, metadata]);
 
   const [name, setName] = React.useState<string | undefined>(undefined);
   const [text, setText] = React.useState<string | undefined>(undefined);
@@ -75,6 +80,7 @@ const Clip: React.FC = () => {
   const handleClickShowPassword = () => setShowPassword((show) => !show);
 
   const downloadFile = async (fileName: string, fileId: string) => {
+    if (!clipboard) return;
     try {
       const response = await fetch(`/api/clipboards/file/${fileId}`);
       const arrayBuffer = await response.arrayBuffer();
@@ -109,15 +115,16 @@ const Clip: React.FC = () => {
   };
 
   const deleteClipboard = async () => {
+    if (!clipboardName) return;
     const formData = new FormData();
-    if (clipboard.is_encrypted) {
+    if (metadata?.is_encrypted) {
       const passwd_hash = await preparePassword(password!);
       formData.append(
         "passwd",
         JSON.stringify(Array.from(new Uint8Array(passwd_hash))),
       );
     }
-    const res = await fetch(`/api/clipboards/${clipboard.name}`, {
+    const res = await fetch(`/api/clipboards/${clipboardName}`, {
       method: "DELETE",
       body: formData,
     });
@@ -131,6 +138,7 @@ const Clip: React.FC = () => {
   };
 
   const handleUpdate = async () => {
+    if (!clipboardName || !clipboard) return;
     setIsUpdating(true);
     try {
       const formData = new FormData();
@@ -180,14 +188,18 @@ const Clip: React.FC = () => {
         }
       }
 
-      const res = await fetch(`/api/clipboards/${clipboard.name}`, {
+      const res = await fetch(`/api/clipboards/${clipboardName}`, {
         method: "PATCH",
         body: formData,
       });
 
       if (res.ok) {
         enqueueSnackbar("Clipboard updated successfully");
-        await fetchClipboards(true);
+        // Refetch full data
+        const updatedData = await fetchClipboardData(clipboardName);
+        if (updatedData) {
+          setDetailedData(updatedData);
+        }
         setIsEditing(false);
         setDeletedFileIds(new Set());
         setNewFiles([]);
@@ -240,7 +252,7 @@ const Clip: React.FC = () => {
 
   const checkPassword = async () => {
     try {
-      if (clipboard.text.length !== 0) {
+      if (clipboard && clipboard.text.length !== 0) {
         const decryptedText = await decryptText(clipboard.text, password!);
         setText(decryptedText);
       }
@@ -253,6 +265,25 @@ const Clip: React.FC = () => {
   const handleClose = () => {
     navigate("/");
   };
+
+  // Ensure metadata is available
+  React.useEffect(() => {
+    if (clipboardList.length === 0) {
+      fetchClipboards(true);
+    }
+  }, [clipboardList, fetchClipboards]);
+
+  // Fetch full data on mount or name change
+  React.useEffect(() => {
+    const loadData = async () => {
+      if (!clipboardName) return;
+      setIsCtxLoading(true);
+      const data = await fetchClipboardData(clipboardName);
+      setDetailedData(data);
+      setIsCtxLoading(false);
+    };
+    loadData();
+  }, [clipboardName, fetchClipboardData]);
 
   React.useEffect(() => {
     const extractData = async () => {
@@ -297,6 +328,23 @@ const Clip: React.FC = () => {
     };
     extractData();
   }, [clipboard, clipboardName, name, password, showDialog]);
+
+  if (isCtxLoading) {
+    return <Loading message={`Fetching ${clipboardName}...`} />;
+  }
+
+  if (!clipboard) {
+    return (
+      <Box sx={{ p: 4, textAlign: "center" }}>
+        <Typography variant="h4" fontWeight={700}>
+          404 Not Found
+        </Typography>
+        <Button onClick={() => navigate("/")} sx={{ mt: 2 }}>
+          Home
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <React.Fragment>

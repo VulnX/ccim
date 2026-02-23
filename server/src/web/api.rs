@@ -8,7 +8,7 @@ use axum::{
         StatusCode,
     },
     response::Response,
-    routing::{get, patch, post},
+    routing::{get, post},
     Json, Router,
 };
 use chrono::Utc;
@@ -20,7 +20,8 @@ use tower_http::limit::RequestBodyLimitLayer;
 
 use crate::{
     error::{Error, Result},
-    models, util,
+    models::{self, ClipboardDataResponse},
+    util,
 };
 
 const FILES_MAX_SIZE: usize = 100;
@@ -33,10 +34,15 @@ pub fn routes() -> Router {
     Router::new()
         .route("/status", get(status))
         .route("/publickey", get(public_key))
-        .route("/clipboards", post(create_clipboard).get(list_clipboards))
+        .route(
+            "/clipboards",
+            post(create_clipboard).get(get_all_clipboards),
+        )
         .route(
             "/clipboards/{name}",
-            patch(update_clipboard).delete(delete_clipboard),
+            get(get_clipboard)
+                .patch(update_clipboard)
+                .delete(delete_clipboard),
         )
         .route("/clipboards/file/{id}", get(download_file))
         .with_state(db_controller)
@@ -172,40 +178,39 @@ async fn create_clipboard(
     Ok(StatusCode::CREATED)
 }
 
-/// Returns a list of all stored clipboards with their content and metadata.
-async fn list_clipboards(
+/// Returns a list of all stored clipboards (and their metadata).
+async fn get_all_clipboards(
     State(db_controller): State<models::DatabaseController>,
-) -> Result<(StatusCode, Json<Vec<models::GetClipboardsResponse>>)> {
-    let clipboards = db_controller.get_clipboards().await?;
-    let mut res: Vec<models::GetClipboardsResponse> = Vec::new();
-    for clipboard in clipboards {
-        let text = tokio::fs::read(util::get_files_dir().join(clipboard.text_file_id))
-            .await
-            .map_err(|e| Error::Unhandled(e.into()))?;
-
-        let mut files: Vec<models::FileInfo> = Vec::new();
-        for (name, id) in clipboard.file_map {
-            let metadata = tokio::fs::metadata(util::get_files_dir().join(&id))
-                .await
-                .map_err(|e| Error::Unhandled(e.into()))?;
-            let size = metadata.len();
-            files.push(models::FileInfo { name, id, size });
-        }
-
-        res.push(models::GetClipboardsResponse {
-            name: clipboard.name.clone(),
-            text,
-            files,
-            is_encrypted: clipboard.is_encrypted,
-            expiry: clipboard.expiry,
-        });
-    }
+) -> Result<(StatusCode, Json<Vec<models::ClipboardMetadata>>)> {
+    let res = db_controller.get_all_clipboards().await?;
 
     if res.is_empty() {
         Ok((StatusCode::NO_CONTENT, Json(res)))
     } else {
         Ok((StatusCode::OK, Json(res)))
     }
+}
+
+async fn get_clipboard(
+    State(db_controller): State<models::DatabaseController>,
+    Path(name): Path<String>,
+) -> Result<(StatusCode, Json<models::ClipboardDataResponse>)> {
+    let clipboard_data = db_controller.get_clipboard(&name).await?;
+
+    let text = tokio::fs::read(util::get_files_dir().join(clipboard_data.text_file_id))
+        .await
+        .map_err(|e| Error::Unhandled(e.into()))?;
+
+    let mut files = Vec::new();
+    for (name, id) in clipboard_data.file_map {
+        let metadata = tokio::fs::metadata(util::get_files_dir().join(&id))
+            .await
+            .map_err(|e| Error::Unhandled(e.into()))?;
+        let size = metadata.len();
+        files.push(models::FileInfo { name, id, size });
+    }
+
+    Ok((StatusCode::OK, Json(ClipboardDataResponse { text, files })))
 }
 
 /// Updates an existing clipboard with new text, added files, or removed files.

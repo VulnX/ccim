@@ -8,7 +8,7 @@ import Create from "./pages/create/Create";
 import Clip from "./pages/clip/Clip";
 import Home from "./pages/home/Home";
 import { useClipboard } from "./context/ClipboardContext";
-import LoadingSpinner from "./components/LoadingSpinner";
+import Loading from "./components/Loading";
 import { keyframes } from "@mui/system";
 
 export const drawerWidth = 260;
@@ -63,7 +63,7 @@ const App = () => {
         <Toolbar />
 
         {loading ? (
-          <LoadingSpinner />
+          <Loading />
         ) : (
           /* Pages */
           <Box

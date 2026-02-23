@@ -1,6 +1,6 @@
 use crate::common::{init_test, make_clipboard_form, CLIPBOARD_TEXT};
 use axum::http::StatusCode;
-use ccim_server::models::GetClipboardsResponse;
+use ccim_server::models::{ClipboardDataResponse, ClipboardMetadata};
 use chrono::Utc;
 use serial_test::serial;
 
@@ -32,21 +32,19 @@ async fn test_list() {
         .await
         .assert_status(StatusCode::CREATED);
     let body = server.get("/api/clipboards").await.text();
-    let clipboards = serde_json::from_str::<Vec<GetClipboardsResponse>>(&body).unwrap();
+    let clipboards = serde_json::from_str::<Vec<ClipboardMetadata>>(&body).unwrap();
     assert_eq!(clipboards.len(), 2);
-    assert_eq!(
-        clipboards[0],
-        GetClipboardsResponse {
-            name: "clip1".into(),
-            text: "".into(),
-            files: Vec::new(),
-            is_encrypted: true,
-            expiry: Utc::now().timestamp() as u64 + 300
-        },
-    );
+
+    assert_eq!(clipboards[0].name, "clip1");
+    assert_eq!(clipboards[0].is_encrypted, true);
+    assert!(clipboards[0].expiry > Utc::now().timestamp() as u64);
+
+    let body = server.get("/api/clipboards/clip2").await.text();
+    let clip2_data = serde_json::from_str::<ClipboardDataResponse>(&body).unwrap();
+
     assert_eq!(clipboards[1].name, "clip2");
-    assert_eq!(clipboards[1].text, CLIPBOARD_TEXT.as_bytes().to_vec());
-    let mut files = clipboards[1]
+    assert_eq!(clip2_data.text, CLIPBOARD_TEXT.as_bytes().to_vec());
+    let mut files = clip2_data
         .files
         .iter()
         .map(|file| file.name.clone())

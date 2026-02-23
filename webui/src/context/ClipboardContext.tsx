@@ -1,14 +1,17 @@
 import React from "react";
-import type { GetClipboardResponse } from "../util/types";
+import type { ClipboardMetadata, ClipboardData } from "../util/types";
 import type { JSX } from "@emotion/react/jsx-runtime";
 
 type ClipboardContextType = {
-  clipboardList: GetClipboardResponse[];
+  clipboardList: ClipboardMetadata[];
   setClipboardList: React.Dispatch<
-    React.SetStateAction<GetClipboardResponse[]>
+    React.SetStateAction<ClipboardMetadata[]>
   >;
   fetchClipboards: (silent?: boolean) => Promise<void>;
   loading: boolean;
+
+  // For full data
+  fetchClipboardData: (name: string) => Promise<ClipboardData | null>;
 };
 
 const ClipboardContext = React.createContext<ClipboardContextType | null>(null);
@@ -25,7 +28,7 @@ export const ClipboardProvider: React.FC<ClipboardProviderProps> = ({
   children,
 }) => {
   const [clipboardList, setClipboardList] = React.useState<
-    GetClipboardResponse[]
+    ClipboardMetadata[]
   >([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -43,14 +46,33 @@ export const ClipboardProvider: React.FC<ClipboardProviderProps> = ({
       return;
     }
     const text = await response.text();
-    const parsed: GetClipboardResponse[] = JSON.parse(text);
+    const parsed: ClipboardMetadata[] = JSON.parse(text);
     setClipboardList(parsed);
     if (!silent) setLoading(false);
   }, []);
 
+  const fetchClipboardData = React.useCallback(async (name: string) => {
+    try {
+      const response = await fetch(`/api/clipboards/${name}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch clipboard data");
+      }
+      return await response.json();
+    } catch (error) {
+      console.error("Error fetching clipboard data:", error);
+      return null;
+    }
+  }, []);
+
   return (
     <ClipboardContext.Provider
-      value={{ clipboardList, setClipboardList, fetchClipboards, loading }}
+      value={{
+        clipboardList,
+        setClipboardList,
+        fetchClipboards,
+        loading,
+        fetchClipboardData
+      }}
     >
       {children}
     </ClipboardContext.Provider>
