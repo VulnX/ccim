@@ -1,4 +1,10 @@
-export type GetClipboardResponse = {
+export type ClipboardMetadata = {
+  name: string;
+  is_encrypted: boolean;
+  expiry: number;
+};
+
+export type ClipboardData = {
   name: string;
   text: number[];
   files: FileData[];
