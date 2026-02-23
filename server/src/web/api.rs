@@ -30,7 +30,7 @@ const ADDITIONAL_BUFFER_SIZE: usize = 1;
 
 /// Returns the API router with all defined HTTP routes.
 pub fn routes() -> Router {
-    let db_controller = models::DatabaseController::new();
+    let app_state = models::AppState::new();
     Router::new()
         .route("/status", get(status))
         .route("/publickey", get(public_key))
@@ -45,7 +45,7 @@ pub fn routes() -> Router {
                 .delete(delete_clipboard),
         )
         .route("/clipboards/file/{id}", get(download_file))
-        .with_state(db_controller)
+        .with_state(app_state)
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(
             (FILES_MAX_SIZE + TEXT_MAX_SIZE + ADDITIONAL_BUFFER_SIZE) * 1024 * 1024,
@@ -67,7 +67,7 @@ async fn public_key() -> Result<String> {
 
 /// Creates a new clipboard with optional text, files, and metadata sent via multipart form data.
 async fn create_clipboard(
-    State(db_controller): State<models::DatabaseController>,
+    State(state): State<models::AppState>,
     mut multipart: Multipart,
 ) -> Result<StatusCode> {
     let mut file_map: HashMap<String, String> = HashMap::new(); // Maps the actual file name to its uuid name in the filesystem
@@ -166,7 +166,7 @@ async fn create_clipboard(
     };
 
     // Attempt to add to database
-    match db_controller.add_clipboard(clipboard).await {
+    match state.db_controller.add_clipboard(clipboard).await {
         Ok(_) => Ok(()),
         Err(e) => {
             // Cleanup stored text/file(s) since this request will be rejected
@@ -180,9 +180,9 @@ async fn create_clipboard(
 
 /// Returns a list of all stored clipboards (and their metadata).
 async fn get_all_clipboards(
-    State(db_controller): State<models::DatabaseController>,
+    State(state): State<models::AppState>,
 ) -> Result<(StatusCode, Json<Vec<models::ClipboardMetadata>>)> {
-    let res = db_controller.get_all_clipboards().await?;
+    let res = state.db_controller.get_all_clipboards().await?;
 
     if res.is_empty() {
         Ok((StatusCode::NO_CONTENT, Json(res)))
@@ -192,10 +192,10 @@ async fn get_all_clipboards(
 }
 
 async fn get_clipboard(
-    State(db_controller): State<models::DatabaseController>,
+    State(state): State<models::AppState>,
     Path(name): Path<String>,
 ) -> Result<(StatusCode, Json<models::ClipboardDataResponse>)> {
-    let clipboard_data = db_controller.get_clipboard(&name).await?;
+    let clipboard_data = state.db_controller.get_clipboard(&name).await?;
 
     let text = tokio::fs::read(util::get_files_dir().join(clipboard_data.text_file_id))
         .await
@@ -215,7 +215,7 @@ async fn get_clipboard(
 
 /// Updates an existing clipboard with new text, added files, or removed files.
 async fn update_clipboard(
-    State(db_controller): State<models::DatabaseController>,
+    State(state): State<models::AppState>,
     Path(name): Path<String>,
     mut multipart: Multipart,
 ) -> Result<StatusCode> {
@@ -251,7 +251,8 @@ async fn update_clipboard(
         }
     }
 
-    let res = match db_controller
+    let res = match state
+        .db_controller
         .update_clipboard(&name, &new_info, &deleted_files, &added_file_map)
         .await
     {
@@ -287,7 +288,7 @@ async fn update_clipboard(
 
 /// Deletes a clipboard and all associated files from the system.
 async fn delete_clipboard(
-    State(db_controller): State<models::DatabaseController>,
+    State(state): State<models::AppState>,
     Path(name): Path<String>,
     mut multipart: Multipart,
 ) -> Result<StatusCode> {
@@ -301,18 +302,18 @@ async fn delete_clipboard(
             passwd = Some(_passwd);
         }
     }
-    let to_be_deleted = db_controller.delete_clipboard(name, passwd).await?;
+    let to_be_deleted = state.db_controller.delete_clipboard(name, passwd).await?;
     util::cleanup_files(to_be_deleted.text_file_id, to_be_deleted.file_ids).await;
     Ok(StatusCode::NO_CONTENT)
 }
 
 /// Streams a file to the client by its ID, if it exists.
 async fn download_file(
-    State(db_controller): State<models::DatabaseController>,
+    State(state): State<models::AppState>,
     Path(id): Path<String>,
 ) -> Result<Response> {
     // TODO : Add password hash checks (do we need this)
-    let file_name = db_controller.get_file_name(&id).await?;
+    let file_name = state.db_controller.get_file_name(&id).await?;
     let file_path = util::get_files_dir().join(id);
     if !file_path.exists() {
         return Ok(Response::builder()

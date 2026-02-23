@@ -59,7 +59,7 @@ pub struct FullClipboardData {
     pub expiry: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClipboardMetadata {
     pub name: String,
     pub is_encrypted: bool,
@@ -114,6 +114,27 @@ pub struct Passwd {
 }
 
 // ----------------------------------------------------------------------------
+
+#[derive(Debug, Clone, FromRef)]
+pub struct AppState {
+    pub db_controller: DatabaseController,
+    pub active_clipboards: Vec<ClipboardMetadata>,
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl AppState {
+    pub fn new() -> Self {
+        Self {
+            db_controller: DatabaseController::new(),
+            active_clipboards: vec![],
+        }
+    }
+}
 
 #[derive(Debug, Clone, FromRef)]
 pub struct DatabaseController {
