@@ -6,7 +6,7 @@ use axum::extract::FromRef;
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, iter::repeat_n, sync::Arc};
-use tokio::sync::Mutex;
+use tokio::sync::{broadcast, Mutex};
 
 // ----------------------- Database Related Definitions -----------------------
 
@@ -118,7 +118,7 @@ pub struct Passwd {
 #[derive(Debug, Clone, FromRef)]
 pub struct AppState {
     pub db_controller: DatabaseController,
-    pub active_clipboards: Vec<ClipboardMetadata>,
+    pub tx: broadcast::Sender<String>,
 }
 
 impl Default for AppState {
@@ -129,10 +129,62 @@ impl Default for AppState {
 
 impl AppState {
     pub fn new() -> Self {
+        let (tx, _) = broadcast::channel(100);
         Self {
             db_controller: DatabaseController::new(),
-            active_clipboards: vec![],
+            tx,
         }
+    }
+
+    pub async fn add_clipboard(&mut self, clipboard: CreateClipboardPayload) -> Result<()> {
+        self.db_controller.add_clipboard(clipboard).await?;
+        self.broadcast_clipboards().await?;
+        Ok(())
+    }
+
+    pub async fn get_clipboard(&self, clipboard_name: &String) -> Result<ClipboardData> {
+        let res = self.db_controller.get_clipboard(clipboard_name).await?;
+        Ok(res)
+    }
+
+    pub async fn delete_clipboard(
+        &mut self,
+        clipboard_name: String,
+        given_passwd: Option<Passwd>,
+    ) -> Result<DeleteClipboardResponse> {
+        let res = self
+            .db_controller
+            .delete_clipboard(clipboard_name, given_passwd)
+            .await?;
+        self.broadcast_clipboards().await?;
+        Ok(res)
+    }
+
+    pub async fn update_clipboard(
+        &mut self,
+        clipboard_name: &String,
+        info_payload: &Option<UpdateClipboardInfoPayload>,
+        delete_payload: &[String],
+        added_file_map: &HashMap<String, String>,
+    ) -> Result<UpdateClipboardResponse> {
+        let res = self
+            .db_controller
+            .update_clipboard(clipboard_name, info_payload, delete_payload, added_file_map)
+            .await?;
+        self.broadcast_clipboards().await?;
+        Ok(res)
+    }
+
+    pub async fn get_file_name(&self, file_id: &String) -> Result<String> {
+        let res = self.db_controller.get_file_name(file_id).await?;
+        Ok(res)
+    }
+
+    async fn broadcast_clipboards(&mut self) -> Result<()> {
+        let clipboards = self.db_controller.fetch_active_clipboards().await?;
+        let json = serde_json::to_string(&clipboards).unwrap_or_else(|_| "[]".into());
+        let _ = self.tx.send(json);
+        Ok(())
     }
 }
 
@@ -148,7 +200,7 @@ impl Default for DatabaseController {
 }
 
 impl DatabaseController {
-    pub fn new() -> Self {
+    fn new() -> Self {
         std::fs::create_dir_all(util::get_files_dir()).unwrap();
         let conn = Connection::open(util::get_data_dir().join("database.db3")).unwrap();
         conn.execute(
@@ -190,7 +242,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
     ///
     /// ## Returns
     /// * A `Result` containing nothing on success, or an `Error` on failure.
-    pub async fn add_clipboard(&self, clipboard: CreateClipboardPayload) -> Result<()> {
+    async fn add_clipboard(&self, clipboard: CreateClipboardPayload) -> Result<()> {
         let conn = self.db.lock().await;
         let passwd_hash = clipboard.passwd.map(|passwd| passwd.hash);
         conn.execute(
@@ -234,52 +286,6 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         Ok(())
     }
 
-    /// Get all existing clipboard's metadata.
-    ///
-    /// ## Arguments
-    /// * None
-    ///
-    /// ## Returns
-    /// * A `Result` containing a `Vec` of `ClipboardMetadata` on success, or an `Error` on failure.
-    ///
-    /// ## Notes
-    /// * Invoking this function automatically calls the `clear_expired_clipboards`
-    ///   filter which removes expired clipboards details from the database as
-    ///   well as from the filesystem
-    pub async fn get_all_clipboards(&self) -> Result<Vec<ClipboardMetadata>> {
-        filter::clear_expired_clipboards(self.db.clone()).await?;
-
-        let conn = self.db.lock().await;
-
-        let mut stmt = conn
-            .prepare("SELECT clipboard_name, text_file_id, passwd_hash, expiry FROM clipboards")
-            .map_err(Error::Database)?;
-
-        let clipboard_rows = stmt
-            .query_map([], |row| {
-                Ok(ClipboardsEntry {
-                    clipboard_name: row.get(0)?,
-                    _text_file_id: row.get(1)?,
-                    passwd_hash: row.get(2)?,
-                    expiry: row.get(3)?,
-                })
-            })
-            .map_err(Error::Database)?;
-
-        let mut clipboards: Vec<ClipboardMetadata> = Vec::new();
-
-        for clipboard_row in clipboard_rows.filter_map(|row| row.ok()) {
-            let clipboard = ClipboardMetadata {
-                name: clipboard_row.clipboard_name,
-                is_encrypted: clipboard_row.passwd_hash.is_some(),
-                expiry: clipboard_row.expiry,
-            };
-            clipboards.push(clipboard);
-        }
-
-        Ok(clipboards)
-    }
-
     /// Get data for a particular clipboard.
     ///
     /// ## Arguments
@@ -292,7 +298,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
     /// * The response only contains the UUIDs of the files where the data is
     ///   located on the disk. The caller must ensure to read the contents
     ///   themselves.
-    pub async fn get_clipboard(&self, clipboard_name: &String) -> Result<ClipboardData> {
+    async fn get_clipboard(&self, clipboard_name: &String) -> Result<ClipboardData> {
         self.ensure_clipboard_exists(clipboard_name).await?;
 
         let conn = self.db.lock().await;
@@ -337,7 +343,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
     ///
     /// ## Returns
     /// * A `Result` containing the `DeleteClipboardResponse` on success, or an `Error` on failure.
-    pub async fn delete_clipboard(
+    async fn delete_clipboard(
         &self,
         clipboard_name: String,
         given_passwd: Option<Passwd>,
@@ -421,7 +427,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
     /// * For example while specifying a `new_text` this function only returns
     ///   the `text_file_id` for the filesystem path of the stored text content.
     ///   The caller must ensure to update it in the filesystem themself.
-    pub async fn update_clipboard(
+    async fn update_clipboard(
         &self,
         clipboard_name: &String,
         info_payload: &Option<UpdateClipboardInfoPayload>,
@@ -495,6 +501,24 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         Ok(res)
     }
 
+    /// Get the real file name mapped to the given file id
+    ///
+    /// ## Arguments
+    /// * `file_id` - The file id, whose name is to be retrieved.
+    ///
+    /// ## Returns
+    /// * A `Result` containing the `String` (the file name), or an `Error` on failure.
+    async fn get_file_name(&self, file_id: &String) -> Result<String> {
+        let conn = self.db.lock().await;
+        let mut stmt = conn
+            .prepare("SELECT file_name from clipboard_files WHERE file_id = ?")
+            .map_err(Error::Database)?;
+        let file_name = stmt
+            .query_row([file_id], |row| row.get::<_, String>(0))
+            .map_err(|_| Error::FileDoesNotExist)?;
+        Ok(file_name)
+    }
+
     /// Updates selective fields for the associated clipboard.
     ///
     /// ## Updatable details fields
@@ -538,24 +562,6 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         Ok(res)
     }
 
-    /// Get the real file name mapped to the given file id
-    ///
-    /// ## Arguments
-    /// * `file_id` - The file id, whose name is to be retrieved.
-    ///
-    /// ## Returns
-    /// * A `Result` containing the `String` (the file name), or an `Error` on failure.
-    pub async fn get_file_name(&self, file_id: &String) -> Result<String> {
-        let conn = self.db.lock().await;
-        let mut stmt = conn
-            .prepare("SELECT file_name from clipboard_files WHERE file_id = ?")
-            .map_err(Error::Database)?;
-        let file_name = stmt
-            .query_row([file_id], |row| row.get::<_, String>(0))
-            .map_err(|_| Error::FileDoesNotExist)?;
-        Ok(file_name)
-    }
-
     async fn ensure_clipboard_exists(&self, clipboard_name: &String) -> Result<()> {
         let conn = self.db.lock().await;
         let mut stmt = conn
@@ -569,5 +575,51 @@ CREATE TABLE IF NOT EXISTS clipboard_files
             return Err(Error::ClipboardDoesNotExist);
         }
         Ok(())
+    }
+
+    /// Get all existing clipboard's metadata.
+    ///
+    /// ## Arguments
+    /// * None
+    ///
+    /// ## Returns
+    /// * A `Result` containing a `Vec` of `ClipboardMetadata` on success, or an `Error` on failure.
+    ///
+    /// ## Notes
+    /// * Invoking this function automatically calls the `clear_expired_clipboards`
+    ///   filter which removes expired clipboards details from the database as
+    ///   well as from the filesystem
+    pub async fn fetch_active_clipboards(&self) -> Result<Vec<ClipboardMetadata>> {
+        filter::clear_expired_clipboards(self.db.clone()).await?;
+
+        let conn = self.db.lock().await;
+
+        let mut stmt = conn
+            .prepare("SELECT clipboard_name, text_file_id, passwd_hash, expiry FROM clipboards")
+            .map_err(Error::Database)?;
+
+        let clipboard_rows = stmt
+            .query_map([], |row| {
+                Ok(ClipboardsEntry {
+                    clipboard_name: row.get(0)?,
+                    _text_file_id: row.get(1)?,
+                    passwd_hash: row.get(2)?,
+                    expiry: row.get(3)?,
+                })
+            })
+            .map_err(Error::Database)?;
+
+        let mut clipboards: Vec<ClipboardMetadata> = Vec::new();
+
+        for clipboard_row in clipboard_rows.filter_map(|row| row.ok()) {
+            let clipboard = ClipboardMetadata {
+                name: clipboard_row.clipboard_name,
+                is_encrypted: clipboard_row.passwd_hash.is_some(),
+                expiry: clipboard_row.expiry,
+            };
+            clipboards.push(clipboard);
+        }
+
+        Ok(clipboards)
     }
 }

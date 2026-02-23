@@ -20,6 +20,7 @@ rsa = "0.9.8"
 rand = "0.8.0"
 sha2 = "0.10.9"
 tokio-stream = { version = "0.1.18", features = ["sync"] }
+futures-util = "0.3.32"
 
 [dev-dependencies]
 axum-test = "17.3.0"

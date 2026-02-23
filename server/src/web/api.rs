@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::Infallible};
 
 use axum::{
     body::Body,
@@ -7,7 +7,7 @@ use axum::{
         header::{CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE},
         StatusCode,
     },
-    response::Response,
+    response::{sse::Event, Response, Sse},
     routing::{get, post},
     Json, Router,
 };
@@ -16,6 +16,7 @@ use tokio::{
     fs::{File, OpenOptions},
     io::AsyncWriteExt,
 };
+use tokio_stream::{wrappers::BroadcastStream, Stream, StreamExt};
 use tower_http::limit::RequestBodyLimitLayer;
 
 use crate::{
@@ -34,10 +35,7 @@ pub fn routes() -> Router {
     Router::new()
         .route("/status", get(status))
         .route("/publickey", get(public_key))
-        .route(
-            "/clipboards",
-            post(create_clipboard).get(get_all_clipboards),
-        )
+        .route("/clipboards", post(create_clipboard).get(list_clipboards))
         .route(
             "/clipboards/{name}",
             get(get_clipboard)
@@ -67,7 +65,7 @@ async fn public_key() -> Result<String> {
 
 /// Creates a new clipboard with optional text, files, and metadata sent via multipart form data.
 async fn create_clipboard(
-    State(state): State<models::AppState>,
+    State(mut state): State<models::AppState>,
     mut multipart: Multipart,
 ) -> Result<StatusCode> {
     let mut file_map: HashMap<String, String> = HashMap::new(); // Maps the actual file name to its uuid name in the filesystem
@@ -166,7 +164,7 @@ async fn create_clipboard(
     };
 
     // Attempt to add to database
-    match state.db_controller.add_clipboard(clipboard).await {
+    match state.add_clipboard(clipboard).await {
         Ok(_) => Ok(()),
         Err(e) => {
             // Cleanup stored text/file(s) since this request will be rejected
@@ -178,24 +176,36 @@ async fn create_clipboard(
     Ok(StatusCode::CREATED)
 }
 
-/// Returns a list of all stored clipboards (and their metadata).
-async fn get_all_clipboards(
+/// Returns a list of all active clipboards (and their metadata).
+async fn list_clipboards(
     State(state): State<models::AppState>,
-) -> Result<(StatusCode, Json<Vec<models::ClipboardMetadata>>)> {
-    let res = state.db_controller.get_all_clipboards().await?;
+) -> Sse<impl Stream<Item = std::result::Result<Event, Infallible>>> {
+    let initial_state = state
+        .db_controller
+        .fetch_active_clipboards()
+        .await
+        .unwrap_or_default();
+    let initial_stream = futures_util::stream::once(async move {
+        let json = serde_json::to_string(&initial_state).unwrap_or_else(|_| "[]".into());
+        Ok(Event::default().data(json))
+    });
 
-    if res.is_empty() {
-        Ok((StatusCode::NO_CONTENT, Json(res)))
-    } else {
-        Ok((StatusCode::OK, Json(res)))
-    }
+    let rx = state.tx.subscribe();
+    let updates = BroadcastStream::new(rx).filter_map(|res| match res {
+        Ok(json) => Some(Ok(Event::default().data(json))),
+        Err(_) => None,
+    });
+
+    let stream = initial_stream.chain(updates);
+
+    Sse::new(stream)
 }
 
 async fn get_clipboard(
     State(state): State<models::AppState>,
     Path(name): Path<String>,
 ) -> Result<(StatusCode, Json<models::ClipboardDataResponse>)> {
-    let clipboard_data = state.db_controller.get_clipboard(&name).await?;
+    let clipboard_data = state.get_clipboard(&name).await?;
 
     let text = tokio::fs::read(util::get_files_dir().join(clipboard_data.text_file_id))
         .await
@@ -215,7 +225,7 @@ async fn get_clipboard(
 
 /// Updates an existing clipboard with new text, added files, or removed files.
 async fn update_clipboard(
-    State(state): State<models::AppState>,
+    State(mut state): State<models::AppState>,
     Path(name): Path<String>,
     mut multipart: Multipart,
 ) -> Result<StatusCode> {
@@ -252,7 +262,6 @@ async fn update_clipboard(
     }
 
     let res = match state
-        .db_controller
         .update_clipboard(&name, &new_info, &deleted_files, &added_file_map)
         .await
     {
@@ -288,7 +297,7 @@ async fn update_clipboard(
 
 /// Deletes a clipboard and all associated files from the system.
 async fn delete_clipboard(
-    State(state): State<models::AppState>,
+    State(mut state): State<models::AppState>,
     Path(name): Path<String>,
     mut multipart: Multipart,
 ) -> Result<StatusCode> {
@@ -302,7 +311,7 @@ async fn delete_clipboard(
             passwd = Some(_passwd);
         }
     }
-    let to_be_deleted = state.db_controller.delete_clipboard(name, passwd).await?;
+    let to_be_deleted = state.delete_clipboard(name, passwd).await?;
     util::cleanup_files(to_be_deleted.text_file_id, to_be_deleted.file_ids).await;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -313,7 +322,7 @@ async fn download_file(
     Path(id): Path<String>,
 ) -> Result<Response> {
     // TODO : Add password hash checks (do we need this)
-    let file_name = state.db_controller.get_file_name(&id).await?;
+    let file_name = state.get_file_name(&id).await?;
     let file_path = util::get_files_dir().join(id);
     if !file_path.exists() {
         return Ok(Response::builder()
