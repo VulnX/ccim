@@ -3,7 +3,7 @@ import { Toolbar, CssBaseline, useMediaQuery, Box } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import MyDrawer from "./DrawerContent";
 import MyAppbar from "./MyAppbar";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useLocation } from "react-router-dom";
 import Create from "./pages/create/Create";
 import Clip from "./pages/clip/Clip";
 import Home from "./pages/home/Home";
@@ -28,6 +28,7 @@ const App = () => {
   const { loading } = useClipboard()!;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const location = useLocation();
 
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
@@ -71,9 +72,9 @@ const App = () => {
               animation: `${fadeIn} 0.6s ease-out`,
             }}
           >
-            <Routes>
+            <Routes location={location}>
               <Route path="/" element={<Home />} />
-              <Route path="/create" element={<Create />} />
+              <Route path="/create" element={<Create key={location.key} />} />
               <Route path="/clip/:clipboardName" element={<Clip />} />
             </Routes>
           </Box>
