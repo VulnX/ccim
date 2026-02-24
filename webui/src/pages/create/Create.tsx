@@ -8,6 +8,7 @@ import SettingsStep from "./components/steps/Settings";
 import { createClipboard, type DialogDetails } from "./components/util";
 import CustomDialog from "./components/CustomDialog";
 import { useClipboard } from "../../context/ClipboardContext";
+import { useNavigate } from "react-router-dom";
 
 const Create: React.FC = () => {
   const [progress, setProgress] = React.useState<null | number>(null);
@@ -26,6 +27,7 @@ const Create: React.FC = () => {
   const [activeStep, setActiveStep] = React.useState(1);
   const [currentStepperTab, setCurrentStepperTab] = React.useState("text");
   const { fetchClipboards } = useClipboard()!;
+  const navigate = useNavigate();
 
   const handleTabChange = (
     _event: React.SyntheticEvent,
@@ -52,8 +54,8 @@ const Create: React.FC = () => {
 
   const closeDialog = (): void => {
     setShowDialog(false);
-    setActiveStep(1);
     fetchClipboards();
+    navigate("/create");
   };
 
   return (
