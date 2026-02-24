@@ -280,6 +280,7 @@ async fn update_clipboard(
         let file_path = util::get_files_dir().join(text_file_id);
         let mut file = OpenOptions::new()
             .write(true)
+            .truncate(true)
             .open(file_path)
             .await
             .unwrap();
