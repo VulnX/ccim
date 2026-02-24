@@ -44,14 +44,23 @@ const ClipboardList: React.FC<ClipboardListProps> = ({
       hasRun.current = true;
       fetchClipboards();
     }
+  }, [fetchClipboards]);
+
+  const [, setTick] = React.useState(0);
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setTick((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
 
   return (
     <List sx={{ px: 1 }}>
-      {clipboardList.map((clipboard, idx) => {
+      {clipboardList.map((clipboard) => {
         return (
           <ListItemButton
-            key={idx}
+            key={clipboard.name}
             sx={{
               borderRadius: 1,
               border: "1px solid #e0e0e0",
