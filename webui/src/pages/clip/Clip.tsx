@@ -285,6 +285,37 @@ const Clip: React.FC = () => {
     loadData();
   }, [clipboardName, fetchClipboardData]);
 
+  // SSE for real-time updates of the selected clipboard
+  React.useEffect(() => {
+    if (!clipboardName) return;
+
+    const eventSource = new EventSource(`/api/clipboards/${clipboardName}/events`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        setDetailedData((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            text: data.text,
+            files: data.files,
+          };
+        });
+      } catch (err) {
+        console.error("Failed to parse clipboard SSE data", err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("Clipboard SSE connection error", err);
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [clipboardName]);
+
   React.useEffect(() => {
     const extractData = async () => {
       if (!clipboard) return;

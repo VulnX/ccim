@@ -6,7 +6,7 @@ use axum::extract::FromRef;
 use rusqlite::{params, params_from_iter, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, iter::repeat_n, sync::Arc};
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::{broadcast, Mutex, RwLock};
 
 // ----------------------- Database Related Definitions -----------------------
 
@@ -74,13 +74,13 @@ pub struct ClipboardData {
 }
 
 /// Actual response from the API.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClipboardDataResponse {
     pub text: Vec<u8>,
     pub files: Vec<FileInfo>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FileInfo {
     pub name: String,
     pub id: String,
@@ -118,7 +118,8 @@ pub struct Passwd {
 #[derive(Debug, Clone, FromRef)]
 pub struct AppState {
     pub db_controller: DatabaseController,
-    pub tx: broadcast::Sender<String>,
+    pub active_list_tx: broadcast::Sender<String>,
+    pub clipboard_txs: Arc<RwLock<HashMap<String, broadcast::Sender<ClipboardDataResponse>>>>,
 }
 
 impl Default for AppState {
@@ -129,10 +130,11 @@ impl Default for AppState {
 
 impl AppState {
     pub fn new() -> Self {
-        let (tx, _) = broadcast::channel(100);
+        let (active_list_tx, _) = broadcast::channel(100);
         Self {
             db_controller: DatabaseController::new(),
-            tx,
+            active_list_tx,
+            clipboard_txs: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -154,9 +156,14 @@ impl AppState {
     ) -> Result<DeleteClipboardResponse> {
         let res = self
             .db_controller
-            .delete_clipboard(clipboard_name, given_passwd)
+            .delete_clipboard(clipboard_name.clone(), given_passwd)
             .await?;
         self.broadcast_clipboards().await?;
+        // Remove broadcast channel for this clipboard
+        {
+            let mut map = self.clipboard_txs.write().await;
+            map.remove(&clipboard_name);
+        }
         Ok(res)
     }
 
@@ -171,7 +178,6 @@ impl AppState {
             .db_controller
             .update_clipboard(clipboard_name, info_payload, delete_payload, added_file_map)
             .await?;
-        self.broadcast_clipboards().await?;
         Ok(res)
     }
 
@@ -180,10 +186,27 @@ impl AppState {
         Ok(res)
     }
 
+    pub async fn broadcast_clipboard_update(
+        &self,
+        clipboard_name: &str,
+        clipboard_data: ClipboardDataResponse,
+    ) -> Result<()> {
+        let mut map = self.clipboard_txs.write().await;
+        if let Some(tx) = map.get(clipboard_name) {
+            let _ = tx.send(clipboard_data);
+
+            // Cleanup if no subscribers left
+            if tx.receiver_count() == 0 {
+                map.remove(clipboard_name);
+            }
+        };
+        Ok(())
+    }
+
     async fn broadcast_clipboards(&mut self) -> Result<()> {
         let clipboards = self.db_controller.fetch_active_clipboards().await?;
         let json = serde_json::to_string(&clipboards).unwrap_or_else(|_| "[]".into());
-        let _ = self.tx.send(json);
+        let _ = self.active_list_tx.send(json);
         Ok(())
     }
 }

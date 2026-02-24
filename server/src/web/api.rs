@@ -15,14 +15,14 @@ use chrono::Utc;
 use tokio::{
     fs::{File, OpenOptions},
     io::AsyncWriteExt,
+    sync::broadcast,
 };
 use tokio_stream::{wrappers::BroadcastStream, Stream, StreamExt};
 use tower_http::limit::RequestBodyLimitLayer;
 
 use crate::{
     error::{Error, Result},
-    models::{self, ClipboardDataResponse},
-    util,
+    models, util,
 };
 
 const FILES_MAX_SIZE: usize = 100;
@@ -43,6 +43,7 @@ pub fn routes() -> Router {
                 .delete(delete_clipboard),
         )
         .route("/clipboards/file/{id}", get(download_file))
+        .route("/clipboards/{name}/events", get(clipboard_events))
         .with_state(app_state)
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(
@@ -190,7 +191,7 @@ async fn list_clipboards(
         Ok(Event::default().data(json))
     });
 
-    let rx = state.tx.subscribe();
+    let rx = state.active_list_tx.subscribe();
     let updates = BroadcastStream::new(rx).filter_map(|res| match res {
         Ok(json) => Some(Ok(Event::default().data(json))),
         Err(_) => None,
@@ -206,7 +207,13 @@ async fn get_clipboard(
     Path(name): Path<String>,
 ) -> Result<(StatusCode, Json<models::ClipboardDataResponse>)> {
     let clipboard_data = state.get_clipboard(&name).await?;
+    let clipboard_data = read_clipboard_from_disk(clipboard_data).await?;
+    Ok((StatusCode::OK, Json(clipboard_data)))
+}
 
+async fn read_clipboard_from_disk(
+    clipboard_data: models::ClipboardData,
+) -> Result<models::ClipboardDataResponse> {
     let text = tokio::fs::read(util::get_files_dir().join(clipboard_data.text_file_id))
         .await
         .map_err(|e| Error::Unhandled(e.into()))?;
@@ -220,7 +227,7 @@ async fn get_clipboard(
         files.push(models::FileInfo { name, id, size });
     }
 
-    Ok((StatusCode::OK, Json(ClipboardDataResponse { text, files })))
+    Ok(models::ClipboardDataResponse { text, files })
 }
 
 /// Updates an existing clipboard with new text, added files, or removed files.
@@ -293,6 +300,17 @@ async fn update_clipboard(
         util::delete_file(file_id).await;
     }
 
+    // NOTE: This needs to be called in the API handler instead of the state
+    // impl functions like update_clipboard(), because the current flow is:
+    // update_clipboard() -> write to disk
+    // If broadcast is called at the end of update_clipboard() then we would be
+    // broadcasting data which is not yet written/flushed to the disk.
+    let clipboard_data = state.get_clipboard(&name).await?;
+    let clipboard_data = read_clipboard_from_disk(clipboard_data).await?;
+    state
+        .broadcast_clipboard_update(&name, clipboard_data)
+        .await?;
+
     Ok(StatusCode::OK)
 }
 
@@ -344,4 +362,38 @@ async fn download_file(
         )
         .body(body)
         .unwrap())
+}
+
+async fn clipboard_events(
+    State(state): State<models::AppState>,
+    Path(name): Path<String>,
+) -> Sse<impl Stream<Item = std::result::Result<Event, Infallible>>> {
+    let tx = {
+        let map = state.clipboard_txs.read().await;
+        map.get(&name).cloned()
+    };
+
+    let tx = if let Some(tx) = tx {
+        tx
+    } else {
+        let mut map = state.clipboard_txs.write().await;
+        map.entry(name.clone())
+            .or_insert_with(|| {
+                let (tx, _) = broadcast::channel(100);
+                tx
+            })
+            .clone()
+    };
+
+    let rx = tx.subscribe();
+
+    let stream = BroadcastStream::new(rx).filter_map(|res| match res {
+        Ok(clipboard_data) => match serde_json::to_string(&clipboard_data) {
+            Ok(json) => Some(Ok(Event::default().data(json))),
+            Err(_) => None,
+        },
+        Err(_) => None,
+    });
+
+    Sse::new(stream)
 }
