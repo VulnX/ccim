@@ -251,11 +251,13 @@ const Clip: React.FC = () => {
   };
 
   const checkPassword = async () => {
+    const currentPassword = password || "";
     try {
-      if (clipboard && clipboard.text.length !== 0) {
-        const decryptedText = await decryptText(clipboard.text, password!);
+      if (clipboard) {
+        const decryptedText = await decryptText(clipboard.text, currentPassword);
         setText(decryptedText);
       }
+      setPassword(currentPassword);
       setShowDialog(false);
     } catch (error) {
       enqueueSnackbar("Invalid password", { variant: "error" });
@@ -341,7 +343,7 @@ const Clip: React.FC = () => {
       // If we are on the same clipboard but data changed (e.g. after update)
       if (clipboard.is_encrypted) {
         // If we already have a password and are not currently showing the dialog, re-decrypt
-        if (password && !showDialog) {
+        if (password !== undefined && !showDialog) {
           try {
             const decryptedText = await decryptText(clipboard.text, password);
             setText(decryptedText);
@@ -349,7 +351,7 @@ const Clip: React.FC = () => {
             // Password might be invalid for the new data (shouldn't happen here)
             setShowDialog(true);
           }
-        } else if (!password) {
+        } else if (password === undefined) {
           setShowDialog(true);
         }
       } else {
