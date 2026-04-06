@@ -37,6 +37,7 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
 import AddIcon from "@mui/icons-material/Add";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import Loading from "../../components/Loading";
 import type { ClipboardData } from "../../util/types";
 
@@ -240,9 +241,44 @@ const Clip: React.FC = () => {
     });
   };
 
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [dragCounter, setDragCounter] = React.useState(0);
+  const isDragging = dragCounter > 0;
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement> | { target: { files: FileList | File[] | null } }) => {
     if (e.target.files) {
       setNewFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    if (!isEditing) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragCounter((prev) => prev + 1);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (!isEditing) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragCounter((prev) => prev - 1);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!isEditing) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (!isEditing) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDragCounter(0);
+
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles && droppedFiles.length > 0) {
+      onFileChange({ target: { files: droppedFiles } });
     }
   };
 
@@ -464,6 +500,10 @@ const Clip: React.FC = () => {
 
       <Paper
         elevation={0}
+        onDragOver={handleDragOver}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         sx={{
           maxWidth: "900px",
           mx: "auto",
@@ -472,8 +512,39 @@ const Clip: React.FC = () => {
           background: "#ffffff",
           borderRadius: 1,
           border: "1px solid #e0e0e0",
+          borderColor: isDragging ? "#1a1a1a" : "#e0e0e0",
+          boxShadow: isDragging ? "0 0 0 4px rgba(26, 26, 26, 0.05)" : "none",
+          transition: "all 0.2s ease",
+          position: "relative",
         }}
       >
+        {isDragging && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(255, 255, 255, 0.9)",
+              zIndex: 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 1,
+              pointerEvents: "none",
+              border: "2px dashed #1a1a1a",
+              m: -0.5,
+            }}
+          >
+            <Stack alignItems="center" spacing={2}>
+              <AddIcon sx={{ fontSize: 64, color: "#1a1a1a" }} />
+              <Typography variant="h5" fontWeight={700} color="#1a1a1a">
+                Drop files to upload
+              </Typography>
+            </Stack>
+          </Box>
+        )}
         <Stack
           direction="row"
           justifyContent="space-between"
@@ -565,14 +636,33 @@ const Clip: React.FC = () => {
         <Divider sx={{ mb: 4 }} />
 
         <Box sx={{ mb: 6 }}>
-          <Stack direction="row" spacing={1} alignItems="center" mb={1.5}>
-            <DescriptionIcon sx={{ color: "#1a1a1a", fontSize: "1.2rem" }} />
-            <Typography
-              variant="subtitle2"
-              sx={{ fontWeight: 700, color: "#1a1a1a" }}
-            >
-              Text Content
-            </Typography>
+          <Stack
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            mb={1.5}
+          >
+            <Stack direction="row" spacing={1} alignItems="center">
+              <DescriptionIcon sx={{ color: "#1a1a1a", fontSize: "1.2rem" }} />
+              <Typography
+                variant="subtitle2"
+                sx={{ fontWeight: 700, color: "#1a1a1a" }}
+              >
+                Text Content
+              </Typography>
+            </Stack>
+            {!isEditing && text && (
+              <IconButton
+                size="small"
+                onClick={() => {
+                  navigator.clipboard.writeText(text);
+                  enqueueSnackbar("Text copied to clipboard");
+                }}
+                sx={{ color: "#1a1a1a" }}
+              >
+                <ContentCopyIcon fontSize="small" />
+              </IconButton>
+            )}
           </Stack>
           {isEditing ? (
             <TextField
