@@ -99,16 +99,16 @@ const Create: React.FC = () => {
     }
   };
 
-  const handleFilePicker = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = event.target.files;
-    if (!selectedFiles || selectedFiles.length === 0) return;
+  const [dragCounter, setDragCounter] = React.useState(0);
+  const isDragging = dragCounter > 0;
 
+  const processFiles = (files: FileList | File[]) => {
     const existingFileKeys = new Set(
       fileList.map((file) => file.name + file.size + file.lastModified),
     );
     const newFiles: File[] = [];
 
-    Array.from(selectedFiles).forEach((file) => {
+    Array.from(files).forEach((file) => {
       const fileKey = file.name + file.size + file.lastModified;
       if (!existingFileKeys.has(fileKey)) {
         newFiles.push(file);
@@ -116,6 +116,40 @@ const Create: React.FC = () => {
     });
 
     setFileList([...fileList, ...newFiles]);
+  };
+
+  const handleFilePicker = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = event.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
+    processFiles(selectedFiles);
+  };
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragCounter((prev) => prev + 1);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragCounter((prev) => prev - 1);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragCounter(0);
+
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles && droppedFiles.length > 0) {
+      processFiles(droppedFiles);
+    }
   };
 
   const deleteFile = (fileToDelete: File) => {
@@ -139,14 +173,49 @@ const Create: React.FC = () => {
     >
       <Paper
         elevation={0}
+        onDragOver={handleDragOver}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
         sx={{
           p: { xs: 2, md: 4 },
           marginTop: 5,
           background: "#ffffff",
           borderRadius: 1,
           border: "1px solid #e0e0e0",
+          borderColor: isDragging ? "#1a1a1a" : "#e0e0e0",
+          boxShadow: isDragging ? "0 0 0 4px rgba(26, 26, 26, 0.05)" : "none",
+          transition: "all 0.2s ease",
+          position: "relative",
         }}
       >
+        {isDragging && (
+          <Box
+            sx={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(255, 255, 255, 0.9)",
+              zIndex: 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 1,
+              pointerEvents: "none",
+              border: "2px dashed #1a1a1a",
+              m: -0.5,
+            }}
+          >
+            <Stack alignItems="center" spacing={2}>
+              <AddIcon sx={{ fontSize: 64, color: "#1a1a1a" }} />
+              <Typography variant="h5" fontWeight={700} color="#1a1a1a">
+                Drop files here
+              </Typography>
+            </Stack>
+          </Box>
+        )}
         {/* Header Section */}
         <Box sx={{ width: "100%", mb: 4 }}>
           <Typography
