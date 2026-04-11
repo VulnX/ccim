@@ -4,10 +4,10 @@ use axum::{
     body::Body,
     extract::{DefaultBodyLimit, Multipart, Path, State},
     http::{
-        header::{CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE},
-        StatusCode,
+        header::{ACCEPT, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE},
+        HeaderMap, StatusCode,
     },
-    response::{sse::Event, Response, Sse},
+    response::{sse::Event, IntoResponse, Response, Sse},
     routing::{get, post},
     Json, Router,
 };
@@ -179,16 +179,30 @@ async fn create_clipboard(
 
 /// Returns a list of all active clipboards (and their metadata).
 async fn list_clipboards(
+    headers: HeaderMap,
     State(state): State<models::AppState>,
-) -> Sse<impl Stream<Item = std::result::Result<Event, Infallible>>> {
+) -> Response {
     let initial_state = state
         .db_controller
         .fetch_active_clipboards()
         .await
         .unwrap_or_default();
+
+    let accept_header = headers
+        .get(ACCEPT)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+
+    if !accept_header.contains("text/event-stream") {
+        if initial_state.is_empty() {
+            return StatusCode::NO_CONTENT.into_response();
+        }
+        return Json(initial_state).into_response();
+    }
+
     let initial_stream = futures_util::stream::once(async move {
         let json = serde_json::to_string(&initial_state).unwrap_or_else(|_| "[]".into());
-        Ok(Event::default().data(json))
+        Ok::<Event, Infallible>(Event::default().data(json))
     });
 
     let rx = state.active_list_tx.subscribe();
@@ -199,7 +213,7 @@ async fn list_clipboards(
 
     let stream = initial_stream.chain(updates);
 
-    Sse::new(stream)
+    Sse::new(stream).into_response()
 }
 
 async fn get_clipboard(
