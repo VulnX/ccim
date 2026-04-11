@@ -20,7 +20,9 @@ pub async fn init_test() -> TestServer {
     {
         ccim_server::util::generate_key_pair().await.unwrap();
     }
-    TestServer::new(ccim_server::web::app()).unwrap()
+    let mut config = axum_test::TestServerConfig::default();
+    config.transport = Some(axum_test::Transport::HttpRandomPort);
+    TestServer::new_with_config(ccim_server::web::app(), config).unwrap()
 }
 
 pub async fn make_clipboard_form(
