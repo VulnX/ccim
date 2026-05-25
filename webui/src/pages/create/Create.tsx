@@ -53,6 +53,7 @@ const Create: React.FC = () => {
   const [password, setPassword] = React.useState<string>("");
   const [showPassword, setShowPassword] = React.useState(false);
   const [showSettings, setShowSettings] = React.useState(false);
+  const [unlisted, setUnlisted] = React.useState(false);
   const [dialogDetails, setDialogDetails] =
     React.useState<DialogDetails | null>(null);
 
@@ -72,6 +73,7 @@ const Create: React.FC = () => {
         expiry,
         isEncrypted,
         password,
+        unlisted,
       );
       setDialogDetails(details);
       setShowDialog(true);
@@ -85,6 +87,7 @@ const Create: React.FC = () => {
     setExpiry(5 * 60);
     setIsEncrypted(false);
     setPassword("");
+    setUnlisted(false);
     setProgress(null);
   };
 
@@ -555,6 +558,33 @@ const Create: React.FC = () => {
                     </FormControl>
                   </Box>
                 </Collapse>
+              </Box>
+
+              {/* Unlisted Setting */}
+              <Box sx={{ flex: 1 }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between">
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#666666" }}>
+                      Unlisted
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "#999999", display: "block" }}>
+                      Hide from public list
+                    </Typography>
+                  </Box>
+                  <Switch
+                    checked={unlisted}
+                    onChange={(e) => setUnlisted(e.target.checked)}
+                    sx={{
+                      "& .MuiSwitch-switchBase.Mui-checked": {
+                        color: "#1a1a1a",
+                        "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.08)" },
+                      },
+                      "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                        backgroundColor: "#1a1a1a",
+                      },
+                    }}
+                  />
+                </Stack>
               </Box>
             </Stack>
           </Collapse>

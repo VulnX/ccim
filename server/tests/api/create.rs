@@ -13,6 +13,7 @@ async fn test_successful() {
         Some(CLIPBOARD_TEXT),
         vec![("file1", "content1")],
         true,
+        false,
     )
     .await;
     server
@@ -31,6 +32,7 @@ async fn test_unencrypted() {
         300,
         Some(CLIPBOARD_TEXT),
         vec![("file1", "content1")],
+        false,
         false,
     )
     .await;
@@ -69,7 +71,7 @@ async fn test_no_info() {
 #[serial]
 async fn test_large_expiry() {
     let server = init_test().await;
-    let form = make_clipboard_form("clip", 1e6 as u64, None, vec![], true).await;
+    let form = make_clipboard_form("clip", 1e6 as u64, None, vec![], true, false).await;
     server
         .post("/api/clipboards")
         .multipart(form)
@@ -81,13 +83,13 @@ async fn test_large_expiry() {
 #[serial]
 async fn test_duplicate() {
     let server = init_test().await;
-    let form = make_clipboard_form("clip", 300 as u64, None, vec![], true).await;
+    let form = make_clipboard_form("clip", 300 as u64, None, vec![], true, false).await;
     server
         .post("/api/clipboards")
         .multipart(form)
         .await
         .assert_status(StatusCode::CREATED);
-    let form = make_clipboard_form("clip", 300 as u64, None, vec![], true).await;
+    let form = make_clipboard_form("clip", 300 as u64, None, vec![], true, false).await;
     server
         .post("/api/clipboards")
         .multipart(form)

@@ -31,8 +31,9 @@ pub async fn make_clipboard_form(
     text: Option<&str>,
     files: Vec<(&str, &str)>,
     encrypted: bool,
+    unlisted: bool,
 ) -> MultipartForm {
-    let mut info = json!({ "name": name, "expire_after": expire_after });
+    let mut info = json!({ "name": name, "expire_after": expire_after, "unlisted": unlisted });
     if encrypted {
         let passwd_hash = json!({
             "hash": vec![0],
