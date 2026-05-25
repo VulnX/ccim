@@ -12,7 +12,7 @@ async fn test_list() {
         .get("/api/clipboards")
         .await
         .assert_status(StatusCode::NO_CONTENT);
-    let form = make_clipboard_form("clip1", 300, None, vec![], true).await;
+    let form = make_clipboard_form("clip1", 300, None, vec![], true, false).await;
     server
         .post("/api/clipboards")
         .multipart(form)
@@ -23,6 +23,7 @@ async fn test_list() {
         300,
         Some(CLIPBOARD_TEXT),
         vec![("file1", "file 1 contents"), ("file2", "file 2 contents")],
+        false,
         false,
     )
     .await;
@@ -64,7 +65,7 @@ async fn test_list() {
 #[serial]
 async fn test_expired_list() {
     let server = init_test().await;
-    let form = make_clipboard_form("clip", 0, None, vec![], true).await;
+    let form = make_clipboard_form("clip", 0, None, vec![], true, false).await;
     server
         .post("/api/clipboards")
         .multipart(form)
@@ -74,4 +75,31 @@ async fn test_expired_list() {
         .get("/api/clipboards")
         .await
         .assert_status(StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
+#[serial]
+async fn test_unlisted() {
+    let server = init_test().await;
+    let form = make_clipboard_form("clip1", 300, None, vec![], false, true).await;
+    server
+        .post("/api/clipboards")
+        .multipart(form)
+        .await
+        .assert_status(StatusCode::CREATED);
+    let form = make_clipboard_form("clip2", 300, None, vec![], false, false).await;
+    server
+        .post("/api/clipboards")
+        .multipart(form)
+        .await
+        .assert_status(StatusCode::CREATED);
+    let public_clipboards = server.get("/api/clipboards").await.text();
+    let public_clipboards =
+        serde_json::from_str::<Vec<ClipboardMetadata>>(&public_clipboards).unwrap();
+    assert!(public_clipboards.len() == 1);
+    assert!(public_clipboards[0].name == "clip2");
+    server
+        .get("/api/clipboards/clip1")
+        .await
+        .assert_status(StatusCode::OK);
 }

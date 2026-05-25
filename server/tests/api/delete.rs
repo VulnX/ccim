@@ -10,7 +10,7 @@ use crate::common::{init_test, make_clipboard_form};
 #[serial]
 async fn test_successful() {
     let server = init_test().await;
-    let form = make_clipboard_form("clip", 300, None, vec![], true).await;
+    let form = make_clipboard_form("clip", 300, None, vec![], true, false).await;
     server
         .post("/api/clipboards")
         .multipart(form)
@@ -34,7 +34,7 @@ async fn test_successful() {
 #[serial]
 async fn test_duplicate() {
     let server = init_test().await;
-    let form = make_clipboard_form("clip", 300, None, vec![], false).await;
+    let form = make_clipboard_form("clip", 300, None, vec![], false, false).await;
     server
         .post("/api/clipboards")
         .multipart(form)
@@ -58,7 +58,7 @@ async fn test_duplicate() {
 #[serial]
 async fn test_unauthorized() {
     let server = init_test().await;
-    let form = make_clipboard_form("clip", 300, None, vec![], true).await;
+    let form = make_clipboard_form("clip", 300, None, vec![], true, false).await;
     server
         .post("/api/clipboards")
         .multipart(form)

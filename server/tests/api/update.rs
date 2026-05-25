@@ -12,7 +12,7 @@ use crate::common::{init_test, make_clipboard_form};
 async fn test_update() {
     let server = init_test().await;
 
-    let form = make_clipboard_form("clip", 300, Some("AAAA"), vec![], true).await;
+    let form = make_clipboard_form("clip", 300, Some("AAAA"), vec![], true, false).await;
     server
         .post("/api/clipboards")
         .multipart(form)
@@ -50,6 +50,7 @@ async fn test_update_files() {
         300,
         Some("AAAA"),
         vec![("file1", "file 1 contents"), ("file2", "file 2 contents")],
+        false,
         false,
     )
     .await;
@@ -113,7 +114,7 @@ async fn test_non_existing() {
 #[serial]
 async fn test_invalid_passwd() {
     let server = init_test().await;
-    let form = make_clipboard_form("clip", 300, None, vec![], true).await;
+    let form = make_clipboard_form("clip", 300, None, vec![], true, false).await;
     server
         .post("/api/clipboards")
         .multipart(form)

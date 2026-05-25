@@ -31,6 +31,7 @@ pub struct CreateClipboardRequest {
     pub name: String,
     pub expire_after: u64,
     pub passwd_hash: Option<Vec<u8>>,
+    pub unlisted: bool,
 }
 
 #[derive(Debug)]
@@ -40,6 +41,7 @@ pub struct CreateClipboardPayload {
     pub file_map: HashMap<String, String>,
     pub passwd: Option<Passwd>,
     pub expiry: u64,
+    pub unlisted: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -105,6 +107,7 @@ pub struct ClipboardInfo {
     pub name: String,
     pub expire_after: u64,
     pub passwd: Option<Passwd>,
+    pub unlisted: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -234,6 +237,7 @@ CREATE TABLE IF NOT EXISTS clipboards
   text_file_id TEXT NOT NULL,
   passwd_hash BLOB,
   expiry INT NOT NULL,
+  unlisted BOOLEAN NOT NULL,
   PRIMARY KEY (clipboard_name),
   UNIQUE (text_file_id)
 );",
@@ -269,12 +273,13 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         let conn = self.db.lock().await;
         let passwd_hash = clipboard.passwd.map(|passwd| passwd.hash);
         conn.execute(
-            "INSERT INTO clipboards (clipboard_name, text_file_id, passwd_hash, expiry) VALUES (?1, ?2, ?3, ?4)",
+            "INSERT INTO clipboards (clipboard_name, text_file_id, passwd_hash, expiry, unlisted) VALUES (?1, ?2, ?3, ?4, ?5)",
             params![
                 clipboard.clipboard_name,
                 clipboard.text_file_id,
                 passwd_hash,
-                clipboard.expiry
+                clipboard.expiry,
+                clipboard.unlisted,
             ],
         )
         .map_err(|e| {
@@ -618,7 +623,7 @@ CREATE TABLE IF NOT EXISTS clipboard_files
         let conn = self.db.lock().await;
 
         let mut stmt = conn
-            .prepare("SELECT clipboard_name, text_file_id, passwd_hash, expiry FROM clipboards")
+            .prepare("SELECT clipboard_name, text_file_id, passwd_hash, expiry FROM clipboards WHERE unlisted IS 0")
             .map_err(Error::Database)?;
 
         let clipboard_rows = stmt

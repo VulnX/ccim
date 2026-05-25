@@ -140,6 +140,7 @@ async fn create_clipboard(
                         name: info.name,
                         expire_after: info.expire_after,
                         passwd,
+                        unlisted: info.unlisted,
                     });
                 }
             }
@@ -156,12 +157,14 @@ async fn create_clipboard(
     let expiry = Utc::now().timestamp() as u64 + clipboard_info.expire_after;
     let clipboard_name = clipboard_info.name;
     let passwd_hash = clipboard_info.passwd;
+    let unlisted = clipboard_info.unlisted;
     let clipboard = models::CreateClipboardPayload {
         clipboard_name,
         text_file_id: text_file_id.clone(),
         file_map: file_map.clone(),
         passwd: passwd_hash,
         expiry,
+        unlisted,
     };
 
     // Attempt to add to database
@@ -178,10 +181,7 @@ async fn create_clipboard(
 }
 
 /// Returns a list of all active clipboards (and their metadata).
-async fn list_clipboards(
-    headers: HeaderMap,
-    State(state): State<models::AppState>,
-) -> Response {
+async fn list_clipboards(headers: HeaderMap, State(state): State<models::AppState>) -> Response {
     let initial_state = state
         .db_controller
         .fetch_active_clipboards()

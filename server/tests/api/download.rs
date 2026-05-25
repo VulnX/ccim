@@ -10,7 +10,15 @@ async fn test_download_file() {
     let server = init_test().await;
     let file_name = "file1";
     let file_contents = "file contents here";
-    let form = make_clipboard_form("clip", 300, None, vec![(file_name, file_contents)], true).await;
+    let form = make_clipboard_form(
+        "clip",
+        300,
+        None,
+        vec![(file_name, file_contents)],
+        true,
+        false,
+    )
+    .await;
     server
         .post("/api/clipboards")
         .multipart(form)
