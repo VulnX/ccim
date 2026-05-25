@@ -12,6 +12,7 @@ export interface DialogDetails {
 interface Info {
   name: string;
   expire_after: number;
+  unlisted: boolean;
   passwd_hash?: number[];
 }
 
@@ -23,6 +24,7 @@ export const createClipboard = async (
   expire_after: number,
   isEncrypted: boolean,
   password: string,
+  unlisted: boolean,
 ) => {
   const formData = new FormData();
 
@@ -40,6 +42,7 @@ export const createClipboard = async (
   const info: Info = {
     name,
     expire_after,
+    unlisted,
   };
   if (isEncrypted) {
     let passwd_hash = await preparePassword(password);

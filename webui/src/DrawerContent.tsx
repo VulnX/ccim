@@ -157,6 +157,7 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
   handleDrawerToggle,
 }) => {
   const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = React.useState("");
 
   const drawerContent = (
     <Stack
@@ -172,6 +173,15 @@ const MyDrawer: React.FC<MyDrawerProps> = ({
         variant="outlined"
         placeholder="Search..."
         size="small"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && searchTerm.trim()) {
+            navigate(`/clip/${searchTerm.trim()}`);
+            setSearchTerm("");
+            handleDrawerToggle();
+          }
+        }}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">

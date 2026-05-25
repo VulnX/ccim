@@ -44,24 +44,12 @@ import type { ClipboardData } from "../../util/types";
 const Clip: React.FC = () => {
   const navigate = useNavigate();
   const { clipboardName } = useParams();
-  const { clipboardList, fetchClipboards, fetchClipboardData } = useClipboard()!;
+  const { fetchClipboards, fetchClipboardData } = useClipboard()!;
 
   const [detailedData, setDetailedData] = React.useState<ClipboardData | null>(null);
   const [isCtxLoading, setIsCtxLoading] = React.useState(true);
 
-  // Merge full data from API with metadata from context
-  const metadata = React.useMemo(() =>
-    clipboardList.find((clip) => clip.name === clipboardName),
-    [clipboardList, clipboardName]
-  );
-
-  const clipboard = React.useMemo(() => {
-    if (!detailedData || !metadata) return null;
-    return {
-      ...detailedData,
-      ...metadata, // Ensure metadata override (like name, is_encrypted, expiry)
-    };
-  }, [detailedData, metadata]);
+  const clipboard = detailedData;
 
   const [name, setName] = React.useState<string | undefined>(undefined);
   const [text, setText] = React.useState<string | undefined>(undefined);
@@ -118,7 +106,7 @@ const Clip: React.FC = () => {
   const deleteClipboard = async () => {
     if (!clipboardName) return;
     const formData = new FormData();
-    if (metadata?.is_encrypted) {
+    if (clipboard?.is_encrypted) {
       const passwd_hash = await preparePassword(password!);
       formData.append(
         "passwd",
@@ -304,12 +292,6 @@ const Clip: React.FC = () => {
     navigate("/");
   };
 
-  // Ensure metadata is available
-  React.useEffect(() => {
-    if (clipboardList.length === 0) {
-      fetchClipboards(true);
-    }
-  }, [clipboardList, fetchClipboards]);
 
   // Fetch full data on mount or name change
   React.useEffect(() => {
@@ -556,7 +538,7 @@ const Clip: React.FC = () => {
               variant="h4"
               sx={{ fontWeight: 800, color: "#1a1a1a", mb: 0.5 }}
             >
-              {clipboard.name}
+              {clipboardName}
             </Typography>
             <Stack direction="row" spacing={2} alignItems="center">
               <Typography
