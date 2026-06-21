@@ -1,0 +1,19 @@
+# Avoid copying the massive local build artifact directory
+target/
+
+# Ignore local git history and configuration
+.git
+.gitignore
+
+# Ignore IDE settings
+.idea/
+.vscode/
+
+# Ignore OS specific junk files
+.DS_Store
+Thumbs.db
+
+# Ignore local documentation or temporary files
+*.md
+
+data/
